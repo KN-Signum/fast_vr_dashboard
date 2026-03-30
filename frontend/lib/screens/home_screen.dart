@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/web_socket_provider.dart';
 import '../providers/game_provider.dart';
+import '../providers/eye_tracking_provider.dart';
 import '../widgets/side_menu.dart';
 import '../widgets/viewer.dart';
 
@@ -24,6 +25,15 @@ class _HomeScreenState extends State<HomeScreen> {
     // Listen to WebSocket messages to update the GameProvider
     final wsProvider = Provider.of<WebSocketProvider>(context, listen: false);
     final gameProvider = Provider.of<GameProvider>(context, listen: false);
+    final eyeTrackingProvider = Provider.of<EyeTrackingProvider>(
+      context,
+      listen: false,
+    );
+
+    // Wire up eye tracking callback from WebSocket
+    wsProvider.setEyeTrackingCallback((data) {
+      eyeTrackingProvider.updateFromJson(data);
+    });
 
     _subscription = wsProvider.stream.listen((message) {
       if (message is String) {

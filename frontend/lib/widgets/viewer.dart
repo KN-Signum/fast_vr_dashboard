@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/web_socket_provider.dart';
 import '../providers/device_provider.dart';
+import '../providers/eye_tracking_provider.dart';
+import 'eye_tracking_overlay.dart';
 import 'dart:typed_data';
 
 class Viewer extends StatelessWidget {
@@ -33,16 +35,9 @@ class Viewer extends StatelessWidget {
                   if (frame == null) {
                     return _buildPlaceholder();
                   }
-                  return AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: Image.memory(
-                      frame,
-                      gaplessPlayback: true, // Kluczowe: zapobiega mruganiu
-                      filterQuality:
-                          FilterQuality.low, // Wyższa wydajność w przeglądarce
-                      fit: BoxFit.contain,
-                    ),
-                  );
+
+                  // Build the preview with ET overlay
+                  return _buildPreviewWithEyeTracking(context, frame);
                 },
               ),
             ),
@@ -55,6 +50,47 @@ class Viewer extends StatelessWidget {
               left: 16,
               child: _buildFloatingMenuButton(context, deviceProvider),
             ),
+
+          // 3. EYE TRACKING TOGGLE (Top-right corner)
+          Positioned(
+            top: 16,
+            right: 16,
+            child: _buildEyeTrackingToggle(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build game preview with eye tracking overlay
+  Widget _buildPreviewWithEyeTracking(BuildContext context, Uint8List frame) {
+    final eyeTrackingProvider = context.watch<EyeTrackingProvider>();
+
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: Stack(
+        children: [
+          // Game preview image
+          Image.memory(
+            frame,
+            gaplessPlayback: true, // Kluczowe: zapobiega mruganiu
+            filterQuality: FilterQuality.low, // Wyższa wydajność w przeglądarce
+            fit: BoxFit.contain,
+          ),
+
+          // Eye tracking overlay
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Calculate actual preview size considering fit: contain
+              final previewWidth = constraints.maxWidth;
+              final previewHeight = constraints.maxHeight;
+
+              return EyeTrackingVisualizationLayer(
+                eyeTrackingProvider: eyeTrackingProvider,
+                previewSize: Size(previewWidth, previewHeight),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -79,6 +115,56 @@ class Viewer extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  // Eye Tracking Toggle Button
+  Widget _buildEyeTrackingToggle(BuildContext context) {
+    final eyeTrackingProvider = context.watch<EyeTrackingProvider>();
+
+    return Material(
+      elevation: 4,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: () {
+          eyeTrackingProvider.toggleEyeTracking();
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: eyeTrackingProvider.isEnabled
+                ? Colors.red.withValues(alpha: 0.2)
+                : Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: eyeTrackingProvider.isEnabled ? Colors.red : Colors.grey,
+              width: 2,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.remove_red_eye,
+                size: 18,
+                color: eyeTrackingProvider.isEnabled ? Colors.red : Colors.grey,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                eyeTrackingProvider.isEnabled ? 'ET: ON' : 'ET: OFF',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: eyeTrackingProvider.isEnabled
+                      ? Colors.red
+                      : Colors.grey,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -107,8 +193,9 @@ class Viewer extends StatelessWidget {
               Selector<WebSocketProvider, bool>(
                 selector: (_, provider) => provider.isConnected,
                 builder: (context, isConnected, _) {
-                  if (deviceProvider.selectedDevice == null)
+                  if (deviceProvider.selectedDevice == null) {
                     return const SizedBox.shrink();
+                  }
 
                   return Row(
                     children: [

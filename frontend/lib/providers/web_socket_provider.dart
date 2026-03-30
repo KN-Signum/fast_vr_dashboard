@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/html.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+
+// Callback for eye tracking data
+typedef OnEyeTrackingData = void Function(Map<String, dynamic> data);
 
 class WebSocketProvider with ChangeNotifier {
   WebSocketChannel? _channel;
@@ -13,12 +15,18 @@ class WebSocketProvider with ChangeNotifier {
   Uint8List? _lastFrame;
   Map<String, dynamic>? _lastJsonMessage;
   bool _isConnected = false;
+  OnEyeTrackingData? _onEyeTrackingData;
 
   WebSocketChannel? get channel => _channel;
   String get status => _status;
   Uint8List? get lastFrame => _lastFrame;
   Map<String, dynamic>? get lastJsonMessage => _lastJsonMessage;
   bool get isConnected => _isConnected;
+
+  /// Register callback for eye tracking data
+  void setEyeTrackingCallback(OnEyeTrackingData callback) {
+    _onEyeTrackingData = callback;
+  }
 
   void connect(String url) {
     if (_isConnected) {
@@ -104,8 +112,18 @@ class WebSocketProvider with ChangeNotifier {
     try {
       final data = json.decode(message) as Map<String, dynamic>;
       _lastJsonMessage = data;
-      _status = 'Otrzymano dane JSON: ${data['type'] ?? 'nieznany'}';
-      print('✅ Otrzymano JSON: $data');
+      final type = data['type'] as String?;
+
+      // Handle eye tracking data separately
+      if (type == 'eye_tracking') {
+        _onEyeTrackingData?.call(data);
+        // Don't update status for every ET message to avoid spam
+        // print('👁️ Received eye tracking data');
+        return;
+      }
+
+      _status = 'Otrzymano dane JSON: ${type ?? 'nieznany'}';
+      print('✅ Otrzymano JSON: ${data.keys.first}...');
     } catch (e) {
       print('❌ Błąd parsowania JSON: $e');
       _status = 'Błąd danych JSON';

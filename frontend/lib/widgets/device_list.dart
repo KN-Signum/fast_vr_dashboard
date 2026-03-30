@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/device_provider.dart';
 import '../providers/web_socket_provider.dart';
-import '../services/device_discovery_service.dart';
 
 class DeviceList extends StatelessWidget {
   const DeviceList({super.key});
@@ -100,7 +99,7 @@ class DeviceList extends StatelessWidget {
                 ),
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );

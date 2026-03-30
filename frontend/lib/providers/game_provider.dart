@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
@@ -60,6 +59,11 @@ class GameProvider with ChangeNotifier {
 
           case 'action_completed':
             _handleActionCompleted(data);
+            break;
+
+          case 'eye_tracking':
+            // Eye tracking data is handled separately by EyeTrackingProvider
+            // This case prevents the default "unknown message type" warning
             break;
 
           default:
