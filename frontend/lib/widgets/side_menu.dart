@@ -69,7 +69,7 @@ class SideMenu extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   '• Unity: Client Mode (Active)\n'
-                  '• Python: FastAPI (Port 8000)\n'
+                  '• Python: FastAPI (Port 8080)\n'
                   '• Protocol: JSON + Binary (Wasm)',
                   style: TextStyle(
                     fontSize: 9,

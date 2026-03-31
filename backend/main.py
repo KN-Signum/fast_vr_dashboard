@@ -6,24 +6,28 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from typing import List
 from contextlib import asynccontextmanager
 from et_mock import eye_tracking_mock_task, et_stream_enabled
-from eeg_stream import eeg_stream_task, eeg_stream_enabled as eeg_enabled  # Uncomment when device is ready
+from eeg_stream import eeg_stream_task, eeg_stream_enabled as eeg_enabled
+from beacon_manager import BeaconManager
 
 et_stream_task  = None
 # eeg_task       = None  # Uncomment when device is ready
+beacon = BeaconManager(ws_port=8080)  # match your uvicorn port
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     global et_stream_task
     print("🧠 Inicjalizacja strumienia danych...")
-    et_stream_task = asyncio.create_task(eye_tracking_mock_task(manager))
-    eeg_task = asyncio.create_task(eeg_stream_task(manager))  # Uncomment when device is ready
-    
+    # et_stream_task = asyncio.create_task(eye_tracking_mock_task(manager))
+    # eeg_task = asyncio.create_task(eeg_stream_task(manager))  # Uncomment when device is ready
+    await beacon.start() 
+
     yield  # App running
     
     # Shutdown
     global et_stream_enabled
     print("🛑 Zamykanie zadań...")
+    await beacon.stop() 
     et_stream_enabled = False
     if et_stream_task:
         et_stream_task.cancel()
@@ -81,6 +85,7 @@ manager = ConnectionManager()
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
+    await beacon.stop() 
     try:
         while True:
             data = await websocket.receive()
@@ -94,22 +99,6 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         print(f"⚠️ Błąd połączenia: {e}")
         manager.disconnect(websocket)
-
-# --- EEG ---
-# async def eeg_stream_task():
-#     print("🧠 Start symulacji strumienia EEG...")
-#     while True:
-#         mock_eeg = {
-#             "type": "eeg_data",
-#             "channels": [0.12, -0.45, 0.88, 0.23],
-#             "focus_level": 0.75
-#         }
-#         await manager.broadcast_json(mock_eeg)
-#         await asyncio.sleep(0.1)
-
-# @app.on_event("startup")
-# async def startup_event():
-#     asyncio.create_task(eeg_stream_task())
 
 # Static web frontend app
 app.mount("/", StaticFiles(directory="static/web", html=True), name="static")

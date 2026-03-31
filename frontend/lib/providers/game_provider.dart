@@ -62,8 +62,11 @@ class GameProvider with ChangeNotifier {
             break;
 
           case 'eye_tracking':
-            // Eye tracking data is handled separately by EyeTrackingProvider
-            // This case prevents the default "unknown message type" warning
+            // Handled separately by EyeTrackingProvider via callback
+            break;
+
+          case 'eeg_data':
+            // Handled separately by EegProvider via callback
             break;
 
           default:

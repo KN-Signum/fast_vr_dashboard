@@ -34,7 +34,7 @@ class _ConnectionSectionState extends State<ConnectionSection> {
     final deviceProvider = Provider.of<DeviceProvider>(context, listen: false);
     deviceProvider.addManualDevice(ip);
     final wsProvider = Provider.of<WebSocketProvider>(context, listen: false);
-    wsProvider.connect('ws://$ip:8000/ws');
+    wsProvider.connect('ws://$ip:8080/ws');
   }
 
   @override
