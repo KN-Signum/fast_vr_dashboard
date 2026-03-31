@@ -6,6 +6,8 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 // Callback for eye tracking data
 typedef OnEyeTrackingData = void Function(Map<String, dynamic> data);
+// Callback for EEG data
+typedef OnEegData = void Function(Map<String, dynamic> data);
 
 class WebSocketProvider with ChangeNotifier {
   WebSocketChannel? _channel;
@@ -16,6 +18,7 @@ class WebSocketProvider with ChangeNotifier {
   Map<String, dynamic>? _lastJsonMessage;
   bool _isConnected = false;
   OnEyeTrackingData? _onEyeTrackingData;
+  OnEegData? _onEegData;
 
   WebSocketChannel? get channel => _channel;
   String get status => _status;
@@ -26,6 +29,11 @@ class WebSocketProvider with ChangeNotifier {
   /// Register callback for eye tracking data
   void setEyeTrackingCallback(OnEyeTrackingData callback) {
     _onEyeTrackingData = callback;
+  }
+
+  /// Register callback for EEG data
+  void setEegCallback(OnEegData callback) {
+    _onEegData = callback;
   }
 
   void connect(String url) {
@@ -117,8 +125,12 @@ class WebSocketProvider with ChangeNotifier {
       // Handle eye tracking data separately
       if (type == 'eye_tracking') {
         _onEyeTrackingData?.call(data);
-        // Don't update status for every ET message to avoid spam
-        // print('👁️ Received eye tracking data');
+        return;
+      }
+
+      // Handle EEG data separately
+      if (type == 'eeg_data') {
+        _onEegData?.call(data);
         return;
       }
 

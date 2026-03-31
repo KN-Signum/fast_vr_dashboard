@@ -5,8 +5,10 @@ import 'package:provider/provider.dart';
 import '../providers/web_socket_provider.dart';
 import '../providers/game_provider.dart';
 import '../providers/eye_tracking_provider.dart';
+import '../providers/eeg_provider.dart';
 import '../widgets/side_menu.dart';
 import '../widgets/viewer.dart';
+import '../widgets/eeg_panel.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -33,6 +35,12 @@ class _HomeScreenState extends State<HomeScreen> {
     // Wire up eye tracking callback from WebSocket
     wsProvider.setEyeTrackingCallback((data) {
       eyeTrackingProvider.updateFromJson(data);
+    });
+
+    // Wire up EEG callback from WebSocket
+    final eegProvider = Provider.of<EegProvider>(context, listen: false);
+    wsProvider.setEegCallback((data) {
+      eegProvider.updateFromJson(data);
     });
 
     _subscription = wsProvider.stream.listen((message) {
@@ -65,6 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
               setState(() => _drawerOpen = !_drawerOpen);
             },
           ),
+          const EegPanel(),
         ],
       ),
     );

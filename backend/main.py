@@ -6,8 +6,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from typing import List
 from contextlib import asynccontextmanager
 from et_mock import eye_tracking_mock_task, et_stream_enabled
+from eeg_stream import eeg_stream_task, eeg_stream_enabled as eeg_enabled  # Uncomment when device is ready
 
-et_stream_task = None
+et_stream_task  = None
+# eeg_task       = None  # Uncomment when device is ready
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -15,6 +17,7 @@ async def lifespan(app: FastAPI):
     global et_stream_task
     print("🧠 Inicjalizacja strumienia danych...")
     et_stream_task = asyncio.create_task(eye_tracking_mock_task(manager))
+    eeg_task = asyncio.create_task(eeg_stream_task(manager))  # Uncomment when device is ready
     
     yield  # App running
     
@@ -26,6 +29,13 @@ async def lifespan(app: FastAPI):
         et_stream_task.cancel()
         try:
             await et_stream_task
+        except asyncio.CancelledError:
+            pass
+    if eeg_task:          # Uncomment when device is ready
+        eeg_enabled = False
+        eeg_task.cancel()
+        try:
+            await eeg_task
         except asyncio.CancelledError:
             pass
 
