@@ -68,53 +68,67 @@ class Viewer extends StatelessWidget {
 
     return AspectRatio(
       aspectRatio: 16 / 9,
-      child: Stack(
-        children: [
-          // Game preview image
-          Image.memory(
-            frame,
-            gaplessPlayback: true, // Kluczowe: zapobiega mruganiu
-            filterQuality: FilterQuality.low, // Wyższa wydajność w przeglądarce
-            fit: BoxFit.contain,
-          ),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.blue, width: 2),
+        ),
+        child: Stack(
+          children: [
+            // Game preview image
+            Image.memory(
+              frame,
+              gaplessPlayback: true, // Kluczowe: zapobiega mruganiu
+              filterQuality:
+                  FilterQuality.low, // Wyższa wydajność w przeglądarce
+              fit: BoxFit.contain,
+            ),
 
-          // Eye tracking overlay
-          LayoutBuilder(
-            builder: (context, constraints) {
-              // Calculate actual preview size considering fit: contain
-              final previewWidth = constraints.maxWidth;
-              final previewHeight = constraints.maxHeight;
+            // Eye tracking overlay
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // Calculate actual preview size considering fit: contain
+                final previewWidth = constraints.maxWidth;
+                final previewHeight = constraints.maxHeight;
 
-              return EyeTrackingVisualizationLayer(
-                eyeTrackingProvider: eyeTrackingProvider,
-                previewSize: Size(previewWidth, previewHeight),
-              );
-            },
-          ),
-        ],
+                return EyeTrackingVisualizationLayer(
+                  eyeTrackingProvider: eyeTrackingProvider,
+                  previewSize: Size(previewWidth, previewHeight),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
 
   // Widget zastępczy, gdy nie ma obrazu
   Widget _buildPlaceholder() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: const [
-        Icon(
-          Icons.videocam_off,
-          size: 64,
-          color: Color.fromARGB(137, 144, 143, 143),
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.orange, width: 2),
         ),
-        SizedBox(height: 16),
-        Text(
-          'Czekam na pierwszą klatkę…',
-          style: TextStyle(
-            color: Color.fromARGB(137, 144, 143, 143),
-            fontSize: 16,
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(
+              Icons.videocam_off,
+              size: 64,
+              color: Color.fromARGB(137, 144, 143, 143),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Czekam na pierwszą klatkę…',
+              style: TextStyle(
+                color: Color.fromARGB(137, 144, 143, 143),
+                fontSize: 16,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 

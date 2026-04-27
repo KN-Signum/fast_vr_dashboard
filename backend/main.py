@@ -18,8 +18,8 @@ async def lifespan(app: FastAPI):
     # Startup
     global et_stream_task
     print("🧠 Inicjalizacja strumienia danych...")
-    # et_stream_task = asyncio.create_task(eye_tracking_mock_task(manager))
-    # eeg_task = asyncio.create_task(eeg_stream_task(manager))  # Uncomment when device is ready
+    et_stream_task = asyncio.create_task(eye_tracking_mock_task(manager))
+    eeg_task = asyncio.create_task(eeg_stream_task(manager))  # Uncomment when device is ready
     await beacon.start() 
 
     yield  # App running
@@ -85,7 +85,7 @@ manager = ConnectionManager()
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
-    await beacon.stop() 
+    # await beacon.stop() 
     try:
         while True:
             data = await websocket.receive()
@@ -105,5 +105,7 @@ app.mount("/", StaticFiles(directory="static/web", html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
-    # Uruchamiamy na 8000
+    # Uruchamiamy na 8080
     uvicorn.run(app, host="0.0.0.0", port=8080)
+
+# uv run uvicorn main:app --reload 

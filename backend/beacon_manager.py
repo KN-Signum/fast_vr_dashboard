@@ -30,7 +30,7 @@ def _get_local_ip() -> str:
 class BeaconManager:
     """Broadcasts a UDP beacon so headsets can discover this server."""
 
-    def __init__(self, ws_port: int = 8000):
+    def __init__(self, ws_port: int = 8080):
         self._ws_port = ws_port
         self._running = False
         self._task: asyncio.Task | None = None
