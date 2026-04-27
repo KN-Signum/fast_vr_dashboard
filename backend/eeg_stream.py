@@ -41,10 +41,24 @@ def build_eeg_payload():
 
     band_power = _compute_simple_features(eeg_uv)
 
+    # Debug: Check data shapes
+    print(f"🧠 EEG shapes - data: {data.shape}, eeg: {eeg.shape}, eeg_uv: {eeg_uv.shape}")
+    print(f"🧠 Band power - alpha len: {len(band_power['alpha'])}, beta len: {len(band_power['beta'])}")
+    print(f"🧠 Alpha values: {band_power['alpha']}")
+
+    # Send raw signal: all samples for all 4 channels
+    raw_signal = {
+        "Fp1": eeg_uv[0, :].tolist(),
+        "Fp2": eeg_uv[1, :].tolist(),
+        "O1": eeg_uv[2, :].tolist(),
+        "O2": eeg_uv[3, :].tolist(),
+    }
+
     return {
         "type": "eeg_data",
         "sampling_rate": SAMPLING_RATE,
         "channels": CHANNELS,
+        "raw_signal": raw_signal,  # NEW: Full waveform for all channels
         "data_uv": eeg_uv[:, -1].tolist(),   # ostatnia próbka
         "band_power": band_power,
         "timestamp_ms": int(time.time() * 1000),

@@ -79,99 +79,118 @@ class _BandPowerChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final eeg = context.watch<EegProvider>();
+    final channels = eeg.latest?.channels ?? [];
 
-    // Get available bands from latest snapshot
-    final availableBands = eeg.latest?.bandPower.keys.toList() ?? [];
-    final bands = availableBands
-        .where((b) => _kBandColors.containsKey(b))
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabel('EEG Raw Signal (µV) - All Channels'),
+        const SizedBox(height: 8),
+        if (channels.isEmpty)
+          _placeholder('Waiting for EEG data...')
+        else
+          ...channels
+              .map(
+                (channel) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _ChannelSignalChart(channel: channel),
+                ),
+              )
+              .toList(),
+      ],
+    );
+  }
+}
+
+class _ChannelSignalChart extends StatelessWidget {
+  final String channel;
+
+  const _ChannelSignalChart({required this.channel});
+
+  @override
+  Widget build(BuildContext context) {
+    final eeg = context.watch<EegProvider>();
+    final rawSignal = eeg.latest?.rawSignal[channel] ?? [];
+
+    if (rawSignal.isEmpty) {
+      return Container(
+        height: 60,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Center(
+          child: Text(
+            '$channel - No data',
+            style: const TextStyle(fontSize: 9, color: Colors.black38),
+          ),
+        ),
+      );
+    }
+
+    final spots = rawSignal
+        .asMap()
+        .entries
+        .map((e) => FlSpot(e.key.toDouble(), e.value))
         .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionLabel('Band Power Over Time (avg, µV²/Hz)'),
-        const SizedBox(height: 4),
-        // Legend
-        Row(
-          children: bands
-              .map(
-                (b) => Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(width: 10, height: 3, color: _kBandColors[b]),
-                      const SizedBox(width: 4),
-                      Text(
-                        b[0].toUpperCase() + b.substring(1),
-                        style: const TextStyle(
-                          fontSize: 9,
-                          color: Colors.black54,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-              .toList(),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 130,
-          child: eeg.snapshots.isEmpty
-              ? _placeholder('Waiting for EEG data...')
-              : LineChart(
-                  _buildLineChartData(eeg, bands),
-                  duration: Duration.zero,
-                ),
-        ),
-      ],
-    );
-  }
-
-  LineChartData _buildLineChartData(EegProvider eeg, List<String> bands) {
-    List<LineChartBarData> lines = bands.map((band) {
-      final series = eeg.bandTimeSeries(band);
-      final spots = series
-          .asMap()
-          .entries
-          .map((e) => FlSpot(e.key.toDouble(), e.value))
-          .toList();
-      return LineChartBarData(
-        spots: spots,
-        isCurved: true,
-        color: _kBandColors[band],
-        barWidth: 1.5,
-        dotData: const FlDotData(show: false),
-        belowBarData: BarAreaData(show: false),
-      );
-    }).toList();
-
-    return LineChartData(
-      lineBarsData: lines,
-      gridData: FlGridData(
-        show: true,
-        drawVerticalLine: false,
-        getDrawingHorizontalLine: (_) =>
-            FlLine(color: Colors.grey.shade300, strokeWidth: 0.5),
-      ),
-      titlesData: FlTitlesData(
-        leftTitles: AxisTitles(
-          sideTitles: SideTitles(
-            showTitles: true,
-            reservedSize: 28,
-            getTitlesWidget: (v, _) => Text(
-              v.toStringAsFixed(1),
-              style: const TextStyle(fontSize: 8, color: Colors.black45),
-            ),
+        Text(
+          channel,
+          style: const TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.bold,
+            color: Colors.black54,
           ),
         ),
-        bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      ),
-      borderData: FlBorderData(show: false),
-      lineTouchData: const LineTouchData(enabled: false),
+        const SizedBox(height: 2),
+        SizedBox(
+          height: 50,
+          child: LineChart(
+            LineChartData(
+              lineBarsData: [
+                LineChartBarData(
+                  spots: spots,
+                  isCurved: false,
+                  color: Colors.blue.shade500,
+                  barWidth: 1,
+                  dotData: const FlDotData(show: false),
+                  belowBarData: BarAreaData(show: false),
+                ),
+              ],
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                getDrawingHorizontalLine: (_) =>
+                    FlLine(color: Colors.grey.shade200, strokeWidth: 0.5),
+              ),
+              titlesData: FlTitlesData(
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 30,
+                    getTitlesWidget: (v, _) => Text(
+                      v.toStringAsFixed(0),
+                      style: const TextStyle(fontSize: 7, color: Colors.black38),
+                    ),
+                  ),
+                ),
+                bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              ),
+              borderData: FlBorderData(
+                show: true,
+                border: Border.all(color: Colors.grey.shade300, width: 0.5),
+              ),
+              lineTouchData: const LineTouchData(enabled: false),
+            ),
+            duration: Duration.zero,
+          ),
+        ),
+      ],
     );
   }
 }

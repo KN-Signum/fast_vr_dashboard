@@ -22,6 +22,7 @@ class EegSnapshot {
   final List<String> channels; // Channel names from payload
   final List<double> dataUv; // Raw microvolts data
   final int samplingRate; // Sampling rate in Hz
+  final Map<String, List<double>> rawSignal; // Raw waveform per channel
   final Map<String, List<double>> bandPower; // band → per-channel values
   final Map<String, List<double>> erd; // band → per-channel ERD% (may be empty)
   final double focusIndex;
@@ -31,6 +32,7 @@ class EegSnapshot {
     required this.channels,
     required this.dataUv,
     required this.samplingRate,
+    required this.rawSignal,
     required this.bandPower,
     required this.erd,
     required this.focusIndex,
@@ -59,6 +61,7 @@ class EegSnapshot {
       channels: channels,
       dataUv: dataUv,
       samplingRate: samplingRate,
+      rawSignal: parseBands(json['raw_signal']),
       bandPower: parseBands(json['band_power']),
       erd: parseBands(json['erd']), // May be empty if not in payload
       focusIndex: (json['focus_index'] as num?)?.toDouble() ?? 0.0,
@@ -85,9 +88,16 @@ class EegProvider with ChangeNotifier {
       final snapshot = EegSnapshot.fromJson(json);
       _buffer.addLast(snapshot);
       if (_buffer.length > kEegBufferSize) _buffer.removeFirst();
+
+      // Debug logging
+      debugPrint('✅ EEG: ${snapshot.channels.length} channels ${snapshot.channels}, '
+          'alpha=${snapshot.bandPower['alpha']?.length ?? 0} values, '
+          'beta=${snapshot.bandPower['beta']?.length ?? 0} values');
+
       notifyListeners();
     } catch (e) {
       debugPrint('❌ Failed to parse EEG data: $e');
+      debugPrint('Raw JSON: $json');
     }
   }
 
