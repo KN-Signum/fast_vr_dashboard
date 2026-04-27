@@ -4,12 +4,11 @@ import 'package:provider/provider.dart';
 import '../providers/eeg_provider.dart';
 
 const double _kPanelWidth = 280;
-const List<String> _kBands = ['alpha', 'beta', 'theta'];
 
 // Line colours per band
 const Map<String, Color> _kBandColors = {
   'alpha': Color(0xFF4C8BF5), // blue
-  'beta':  Color(0xFF34A853), // green
+  'beta': Color(0xFF34A853), // green
   'theta': Color(0xFFFF9800), // orange
 };
 
@@ -53,9 +52,7 @@ class _PanelHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade700,
-      ),
+      decoration: BoxDecoration(color: Colors.blue.shade700),
       child: const Row(
         children: [
           Icon(Icons.psychology, color: Colors.white, size: 18),
@@ -83,6 +80,12 @@ class _BandPowerChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final eeg = context.watch<EegProvider>();
 
+    // Get available bands from latest snapshot
+    final availableBands = eeg.latest?.bandPower.keys.toList() ?? [];
+    final bands = availableBands
+        .where((b) => _kBandColors.containsKey(b))
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -90,20 +93,27 @@ class _BandPowerChart extends StatelessWidget {
         const SizedBox(height: 4),
         // Legend
         Row(
-          children: _kBands.map((b) => Padding(
-            padding: const EdgeInsets.only(right: 10),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(width: 10, height: 3, color: _kBandColors[b]),
-                const SizedBox(width: 4),
-                Text(
-                  b[0].toUpperCase() + b.substring(1),
-                  style: const TextStyle(fontSize: 9, color: Colors.black54),
+          children: bands
+              .map(
+                (b) => Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(width: 10, height: 3, color: _kBandColors[b]),
+                      const SizedBox(width: 4),
+                      Text(
+                        b[0].toUpperCase() + b.substring(1),
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-          )).toList(),
+              )
+              .toList(),
         ),
         const SizedBox(height: 8),
         SizedBox(
@@ -111,7 +121,7 @@ class _BandPowerChart extends StatelessWidget {
           child: eeg.snapshots.isEmpty
               ? _placeholder('Waiting for EEG data...')
               : LineChart(
-                  _buildLineChartData(eeg),
+                  _buildLineChartData(eeg, bands),
                   duration: Duration.zero,
                 ),
         ),
@@ -119,10 +129,12 @@ class _BandPowerChart extends StatelessWidget {
     );
   }
 
-  LineChartData _buildLineChartData(EegProvider eeg) {
-    List<LineChartBarData> lines = _kBands.map((band) {
+  LineChartData _buildLineChartData(EegProvider eeg, List<String> bands) {
+    List<LineChartBarData> lines = bands.map((band) {
       final series = eeg.bandTimeSeries(band);
-      final spots = series.asMap().entries
+      final spots = series
+          .asMap()
+          .entries
           .map((e) => FlSpot(e.key.toDouble(), e.value))
           .toList();
       return LineChartBarData(
@@ -140,10 +152,8 @@ class _BandPowerChart extends StatelessWidget {
       gridData: FlGridData(
         show: true,
         drawVerticalLine: false,
-        getDrawingHorizontalLine: (_) => FlLine(
-          color: Colors.grey.shade300,
-          strokeWidth: 0.5,
-        ),
+        getDrawingHorizontalLine: (_) =>
+            FlLine(color: Colors.grey.shade300, strokeWidth: 0.5),
       ),
       titlesData: FlTitlesData(
         leftTitles: AxisTitles(
@@ -158,7 +168,7 @@ class _BandPowerChart extends StatelessWidget {
         ),
         bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
         rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        topTitles:   AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
       ),
       borderData: FlBorderData(show: false),
       lineTouchData: const LineTouchData(enabled: false),
@@ -174,19 +184,32 @@ class _ErdBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final eeg = context.watch<EegProvider>();
+    final channels = eeg.getChannels();
     final alphaErd = eeg.latestErd('alpha');
-    final betaErd  = eeg.latestErd('beta');
+    final betaErd = eeg.latestErd('beta');
+
+    // Show placeholder if no ERD data available
+    if (alphaErd.isEmpty && betaErd.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionLabel('ERD% per Channel (alpha · beta)'),
+          const SizedBox(height: 8),
+          _placeholder('Waiting for ERD data...'),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionLabel('ERD% per Channel (alpha · beta)'),
         const SizedBox(height: 8),
-        ...kEegChannels.asMap().entries.map((entry) {
-          final i   = entry.key;
-          final ch  = entry.value;
-          final a   = i < alphaErd.length ? alphaErd[i] : 0.0;
-          final b   = i < betaErd.length  ? betaErd[i]  : 0.0;
+        ...channels.asMap().entries.map((entry) {
+          final i = entry.key;
+          final ch = entry.value;
+          final a = i < alphaErd.length ? alphaErd[i] : 0.0;
+          final b = i < betaErd.length ? betaErd[i] : 0.0;
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
             child: _ErdChannelRow(channel: ch, alpha: a, beta: b),
@@ -196,8 +219,14 @@ class _ErdBarChart extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: const [
-            Text('−  desync', style: TextStyle(fontSize: 8, color: Colors.black38)),
-            Text('+ sync', style: TextStyle(fontSize: 8, color: Colors.black38)),
+            Text(
+              '−  desync',
+              style: TextStyle(fontSize: 8, color: Colors.black38),
+            ),
+            Text(
+              '+ sync',
+              style: TextStyle(fontSize: 8, color: Colors.black38),
+            ),
           ],
         ),
       ],
@@ -222,7 +251,10 @@ class _ErdChannelRow extends StatelessWidget {
       children: [
         SizedBox(
           width: 28,
-          child: Text(channel, style: const TextStyle(fontSize: 9, color: Colors.black54)),
+          child: Text(
+            channel,
+            style: const TextStyle(fontSize: 9, color: Colors.black54),
+          ),
         ),
         Expanded(child: _erdBar(alpha, _kBandColors['alpha']!)),
         const SizedBox(width: 2),
@@ -238,29 +270,37 @@ class _ErdChannelRow extends StatelessWidget {
     final normalizedWidth = (clamped.abs() / range);
     final isNegative = value < 0;
 
-    return LayoutBuilder(builder: (_, constraints) {
-      final maxW = constraints.maxWidth;
-      return Stack(
-        children: [
-          // Background
-          Container(height: 8, color: Colors.grey.shade200),
-          // Bar — grows from center
-          Positioned(
-            left: isNegative ? maxW / 2 - normalizedWidth * (maxW / 2) : maxW / 2,
-            child: Container(
-              width: normalizedWidth * (maxW / 2),
-              height: 8,
-              color: color.withValues(alpha: 0.7),
+    return LayoutBuilder(
+      builder: (_, constraints) {
+        final maxW = constraints.maxWidth;
+        return Stack(
+          children: [
+            // Background
+            Container(height: 8, color: Colors.grey.shade200),
+            // Bar — grows from center
+            Positioned(
+              left: isNegative
+                  ? maxW / 2 - normalizedWidth * (maxW / 2)
+                  : maxW / 2,
+              child: Container(
+                width: normalizedWidth * (maxW / 2),
+                height: 8,
+                color: color.withValues(alpha: 0.7),
+              ),
             ),
-          ),
-          // Center line
-          Positioned(
-            left: maxW / 2,
-            child: Container(width: 1, height: 8, color: Colors.grey.shade400),
-          ),
-        ],
-      );
-    });
+            // Center line
+            Positioned(
+              left: maxW / 2,
+              child: Container(
+                width: 1,
+                height: 8,
+                color: Colors.grey.shade400,
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -273,6 +313,19 @@ class _FocusIndexBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final eeg = context.watch<EegProvider>();
     final focus = eeg.latest?.focusIndex ?? 0.0;
+
+    // Show placeholder if data indicates feature not available
+    if (eeg.latest?.focusIndex == null || eeg.latest?.focusIndex == 0.0) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionLabel('Focus Index'),
+          const SizedBox(height: 6),
+          _placeholder('Not available'),
+        ],
+      );
+    }
+
     final color = Color.lerp(Colors.green, Colors.red, focus)!;
 
     return Column(
@@ -293,12 +346,22 @@ class _FocusIndexBar extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Focused', style: TextStyle(fontSize: 8, color: Colors.black38)),
+            const Text(
+              'Focused',
+              style: TextStyle(fontSize: 8, color: Colors.black38),
+            ),
             Text(
               focus.toStringAsFixed(2),
-              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.black54),
+              style: const TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: Colors.black54,
+              ),
             ),
-            const Text('Relaxed', style: TextStyle(fontSize: 8, color: Colors.black38)),
+            const Text(
+              'Relaxed',
+              style: TextStyle(fontSize: 8, color: Colors.black38),
+            ),
           ],
         ),
       ],
