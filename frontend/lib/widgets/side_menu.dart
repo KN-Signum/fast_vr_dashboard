@@ -59,23 +59,16 @@ class SideMenu extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Wymagania Systemowe:',
+                  'Created by',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: Colors.grey.shade700,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  '• Unity: Client Mode (Active)\n'
-                  '• Python: FastAPI (Port 8080)\n'
-                  '• Protocol: JSON + Binary (Wasm)',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: Colors.grey.shade600,
-                    height: 1.4,
-                  ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Image.asset("images/signum_light.png", height: 50),
                 ),
               ],
             ),

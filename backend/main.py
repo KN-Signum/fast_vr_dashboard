@@ -3,6 +3,7 @@ import json
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.cors import CORSMiddleware
 from typing import List
 from contextlib import asynccontextmanager
 from et_mock import eye_tracking_mock_task, et_stream_enabled
@@ -12,6 +13,34 @@ from beacon_manager import BeaconManager
 et_stream_task  = None
 # eeg_task       = None  # Uncomment when device is ready
 beacon = BeaconManager(ws_port=8080)  # match your uvicorn port
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        print(f"✅ Klient podłączony. Aktywnych: {len(self.active_connections)}")
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+            print(f"❌ Klient rozłączony. Pozostało: {len(self.active_connections)}")
+
+    async def broadcast_binary(self, data: bytes, sender: WebSocket):
+        for connection in self.active_connections:
+            if connection != sender:
+                try: await connection.send_bytes(data)
+                except: pass
+
+    async def broadcast_json(self, data: dict, sender: WebSocket = None):
+        for connection in self.active_connections:
+            if connection != sender:
+                try: await connection.send_json(data)
+                except: pass
+
+manager = ConnectionManager()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -45,6 +74,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# CORS middleware for WebSocket connections
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for development
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 class WasmSecurityMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
@@ -53,34 +91,6 @@ class WasmSecurityMiddleware(BaseHTTPMiddleware):
         return response
 
 app.add_middleware(WasmSecurityMiddleware)
-
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-        print(f"✅ Klient podłączony. Aktywnych: {len(self.active_connections)}")
-
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-            print(f"❌ Klient rozłączony. Pozostało: {len(self.active_connections)}")
-
-    async def broadcast_binary(self, data: bytes, sender: WebSocket):
-        for connection in self.active_connections:
-            if connection != sender:
-                try: await connection.send_bytes(data)
-                except: pass
-
-    async def broadcast_json(self, data: dict, sender: WebSocket = None):
-        for connection in self.active_connections:
-            if connection != sender:
-                try: await connection.send_json(data)
-                except: pass
-
-manager = ConnectionManager()
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -108,4 +118,4 @@ if __name__ == "__main__":
     # Uruchamiamy na 8080
     uvicorn.run(app, host="0.0.0.0", port=8080)
 
-# uv run uvicorn main:app --reload 
+# uv run uvicorn main:app --reload --port 8080
