@@ -48,7 +48,8 @@ async def lifespan(app: FastAPI):
     global et_stream_task
     print("🧠 Inicjalizacja strumienia danych...")
     et_stream_task = asyncio.create_task(eye_tracking_mock_task(manager))
-    eeg_task = asyncio.create_task(eeg_stream_task(manager))  # Uncomment when device is ready
+    global eeg_task
+    eeg_task = asyncio.create_task(eeg_stream_task(manager))
     await beacon.start() 
 
     yield  # App running
@@ -64,6 +65,8 @@ async def lifespan(app: FastAPI):
             await et_stream_task
         except asyncio.CancelledError:
             pass
+    global eeg_task
+
     if eeg_task:          # Uncomment when device is ready
         eeg_enabled = False
         eeg_task.cancel()
