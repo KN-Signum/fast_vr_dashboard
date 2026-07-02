@@ -15,6 +15,8 @@ class WebSocketProvider with ChangeNotifier {
   Stream<dynamic> get stream => _streamController.stream;
   String _status = 'Połącz z backendem, aby rozpocząć';
   Uint8List? _lastFrame;
+  DateTime? _lastFrameAt;
+  DateTime? _lastVrMessageAt;
   bool _isConnected = false;
   OnEyeTrackingData? _onEyeTrackingData;
   OnEegData? _onEegData;
@@ -22,7 +24,26 @@ class WebSocketProvider with ChangeNotifier {
   WebSocketChannel? get channel => _channel;
   String get status => _status;
   Uint8List? get lastFrame => _lastFrame;
+  DateTime? get lastFrameAt => _lastFrameAt;
+  DateTime? get lastVrMessageAt => _lastVrMessageAt;
   bool get isConnected => _isConnected;
+
+  static String defaultBackendUrl() {
+    final base = Uri.base;
+    if (base.scheme != 'http' && base.scheme != 'https') {
+      return 'ws://127.0.0.1:8080/ws';
+    }
+
+    final host = base.host.isEmpty ? '127.0.0.1' : base.host;
+    final isLocalHost =
+        host == 'localhost' || host == '127.0.0.1' || host == '::1';
+    final scheme = base.scheme == 'https' ? 'wss' : 'ws';
+    final port = isLocalHost && base.hasPort && base.port != 8080
+        ? 8080
+        : (base.hasPort ? base.port : null);
+
+    return Uri(scheme: scheme, host: host, port: port, path: '/ws').toString();
+  }
 
   /// Register callback for eye tracking data
   void setEyeTrackingCallback(OnEyeTrackingData callback) {
@@ -73,6 +94,8 @@ class WebSocketProvider with ChangeNotifier {
           _status = 'Rozłączony';
           _channel = null;
           _isConnected = false;
+          _lastFrameAt = null;
+          _lastVrMessageAt = null;
           _streamController.close();
           _streamController =
               StreamController.broadcast(); // Re-create for next connection
@@ -83,6 +106,8 @@ class WebSocketProvider with ChangeNotifier {
           _status = 'Błąd połączenia: $e';
           _channel = null;
           _isConnected = false;
+          _lastFrameAt = null;
+          _lastVrMessageAt = null;
           _streamController.close();
           _streamController =
               StreamController.broadcast(); // Re-create for next connection
@@ -106,6 +131,7 @@ class WebSocketProvider with ChangeNotifier {
     if (data[0] == 255 || data[0] == 1) {
       // Jeśli prefix to 1, odcinamy go. Jeśli 255, bierzemy całość (bo to już start JPG)
       _lastFrame = (data[0] == 1) ? data.sublist(1) : data;
+      _lastFrameAt = DateTime.now();
 
       _status = 'Otrzymano klatkę JPEG (${_lastFrame!.lengthInBytes} B)';
       notifyListeners(); // To odpali Selector w Viewere i odświeży obraz
@@ -135,6 +161,7 @@ class WebSocketProvider with ChangeNotifier {
         return;
       }
 
+      _lastVrMessageAt = DateTime.now();
       _status = 'Otrzymano dane JSON: ${type ?? 'nieznany'}';
       debugPrint('✅ Otrzymano JSON: ${data.keys.first}...');
     } catch (e) {
@@ -173,6 +200,8 @@ class WebSocketProvider with ChangeNotifier {
     _isConnected = false;
     _status = 'Rozłączony';
     _lastFrame = null;
+    _lastFrameAt = null;
+    _lastVrMessageAt = null;
     notifyListeners();
     debugPrint('🔌 Rozłączono manualnie.');
   }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/eeg_provider.dart';
+import '../theme/app_style.dart';
 
 const double _kPanelWidth = 320;
 
@@ -45,8 +46,8 @@ class _EegPanelState extends State<EegPanel> {
     return Container(
       width: _kPanelWidth,
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        border: Border(left: BorderSide(color: Colors.grey.shade300)),
+        color: AppColors.surface,
+        border: const Border(left: BorderSide(color: AppColors.border)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -266,7 +267,7 @@ class _Header extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(color: Colors.blue.shade700),
+      decoration: const BoxDecoration(color: AppColors.primaryDark),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -695,8 +696,8 @@ class _CardShell extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
       ),
       child: child,
     );

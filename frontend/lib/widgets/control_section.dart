@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 import '../providers/web_socket_provider.dart';
+import '../theme/app_style.dart';
 
 class ControlSection extends StatelessWidget {
   const ControlSection({super.key});
@@ -14,7 +15,7 @@ class ControlSection extends StatelessWidget {
     if (wsProvider.channel == null) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -62,34 +63,41 @@ class ControlSection extends StatelessWidget {
         break;
     }
 
-    return Row(
-      children: [
-        Text(
-          'KONTROLA',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey.shade600,
-            letterSpacing: 1,
-          ),
-        ),
-        const Spacer(),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              color: statusColor,
+    return SectionPanel(
+      padding: const EdgeInsets.all(12),
+      color: AppColors.surfaceAlt,
+      child: Row(
+        children: [
+          const Icon(Icons.tune, size: 17, color: AppColors.primary),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'VR Controls',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: AppColors.text,
+              ),
             ),
           ),
-        ),
-      ],
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: statusColor.withValues(alpha: 0.2)),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: statusColor,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -165,6 +173,7 @@ class ControlSection extends StatelessWidget {
           backgroundColor: color,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
     );

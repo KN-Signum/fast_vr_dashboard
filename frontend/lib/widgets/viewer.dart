@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/web_socket_provider.dart';
 import '../providers/eye_tracking_provider.dart';
+import '../theme/app_style.dart';
 import 'eye_tracking_overlay.dart';
 import 'dart:typed_data';
 
@@ -22,7 +23,7 @@ class Viewer extends StatelessWidget {
         children: [
           // 1. OBSZAR STREAMINGU (Tylko to odświeża się 20+ razy na sekundę)
           Container(
-            color: const Color.fromARGB(255, 255, 255, 255),
+            color: AppColors.viewer,
             child: Center(
               child: Selector<WebSocketProvider, Uint8List?>(
                 // Selector sprawia, że ten fragment kodu reaguje TYLKO na zmianę lastFrame
@@ -65,9 +66,20 @@ class Viewer extends StatelessWidget {
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: Container(
+        margin: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.blue, width: 2),
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.28),
+              blurRadius: 30,
+              offset: const Offset(0, 18),
+            ),
+          ],
         ),
+        clipBehavior: Clip.antiAlias,
         child: Stack(
           children: [
             // Game preview image
@@ -103,24 +115,29 @@ class Viewer extends StatelessWidget {
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: Container(
+        margin: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.orange, width: 2),
+          color: const Color(0xFF18212F),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         ),
-        child: Column(
+        child: const Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(
-              Icons.videocam_off,
-              size: 64,
-              color: Color.fromARGB(137, 144, 143, 143),
-            ),
-            SizedBox(height: 16),
+          children: [
+            Icon(Icons.monitor, size: 58, color: Color(0xFF94A3B8)),
+            SizedBox(height: 14),
             Text(
-              'Czekam na pierwszą klatkę…',
+              'Waiting for VR preview',
               style: TextStyle(
-                color: Color.fromARGB(137, 144, 143, 143),
+                color: Color(0xFFE2E8F0),
                 fontSize: 16,
+                fontWeight: FontWeight.w700,
               ),
+            ),
+            SizedBox(height: 6),
+            Text(
+              'The preview will appear when the headset sends frames.',
+              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
             ),
           ],
         ),
@@ -133,23 +150,23 @@ class Viewer extends StatelessWidget {
     final eyeTrackingProvider = context.watch<EyeTrackingProvider>();
 
     return Material(
-      elevation: 4,
-      borderRadius: BorderRadius.circular(8),
+      color: Colors.transparent,
       child: InkWell(
         onTap: () {
           eyeTrackingProvider.toggleEyeTracking();
         },
         borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: eyeTrackingProvider.isEnabled
-                ? Colors.red.withValues(alpha: 0.2)
-                : Colors.white,
+                ? AppColors.danger.withValues(alpha: 0.92)
+                : Colors.white.withValues(alpha: 0.92),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: eyeTrackingProvider.isEnabled ? Colors.red : Colors.grey,
-              width: 2,
+              color: eyeTrackingProvider.isEnabled
+                  ? AppColors.danger
+                  : Colors.white.withValues(alpha: 0.4),
             ),
           ),
           child: Row(
@@ -158,7 +175,9 @@ class Viewer extends StatelessWidget {
               Icon(
                 Icons.remove_red_eye,
                 size: 18,
-                color: eyeTrackingProvider.isEnabled ? Colors.red : Colors.grey,
+                color: eyeTrackingProvider.isEnabled
+                    ? Colors.white
+                    : AppColors.muted,
               ),
               const SizedBox(width: 8),
               Text(
@@ -166,8 +185,8 @@ class Viewer extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   color: eyeTrackingProvider.isEnabled
-                      ? Colors.red
-                      : Colors.grey,
+                      ? Colors.white
+                      : AppColors.muted,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -181,21 +200,20 @@ class Viewer extends StatelessWidget {
   // Przycisk menu z informacją o połączeniu
   Widget _buildFloatingMenuButton(BuildContext context) {
     return Material(
-      elevation: 4,
-      borderRadius: BorderRadius.circular(8),
+      color: Colors.transparent,
       child: InkWell(
         onTap: onToggleDrawer,
         borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Colors.white.withValues(alpha: 0.94),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.menu, size: 20, color: Colors.grey.shade700),
+              const Icon(Icons.menu, size: 20, color: AppColors.text),
               Selector<WebSocketProvider, bool>(
                 selector: (_, provider) => provider.isConnected,
                 builder: (context, isConnected, _) {
@@ -209,14 +227,16 @@ class Viewer extends StatelessWidget {
                       Icon(
                         isConnected ? Icons.cast_connected : Icons.cast,
                         size: 18,
-                        color: isConnected ? Colors.green : Colors.grey,
+                        color: isConnected
+                            ? AppColors.success
+                            : AppColors.muted,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         'Backend',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade800,
+                          color: AppColors.text,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
