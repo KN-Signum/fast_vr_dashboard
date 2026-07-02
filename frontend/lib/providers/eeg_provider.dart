@@ -7,14 +7,14 @@ const int kEegBufferSize = kEegBufferSeconds * kEegHz; // 300 points
 
 // Default channel names (may be overridden by payload)
 const List<String> kEegChannels = [
-  'Fp1',
-  'Fp2',
   'F3',
   'F4',
   'C3',
   'C4',
   'P3',
   'P4',
+  'O1',
+  'O2',
 ];
 
 /// Holds a single EEG snapshot received from the backend.
