@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'connection_section.dart';
-import 'device_list.dart';
 import 'control_section.dart';
 
 class SideMenu extends StatelessWidget {
@@ -47,7 +46,6 @@ class SideMenu extends StatelessWidget {
             ),
           ),
           const ConnectionSection(),
-          const DeviceList(),
           const ControlSection(),
           const Spacer(),
           Container(

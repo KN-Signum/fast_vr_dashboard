@@ -13,9 +13,8 @@ class WebSocketProvider with ChangeNotifier {
   WebSocketChannel? _channel;
   StreamController<dynamic> _streamController = StreamController.broadcast();
   Stream<dynamic> get stream => _streamController.stream;
-  String _status = 'Kliknij "Szukaj gogli" aby rozpocząć';
+  String _status = 'Połącz z backendem, aby rozpocząć';
   Uint8List? _lastFrame;
-  Map<String, dynamic>? _lastJsonMessage;
   bool _isConnected = false;
   OnEyeTrackingData? _onEyeTrackingData;
   OnEegData? _onEegData;
@@ -23,7 +22,6 @@ class WebSocketProvider with ChangeNotifier {
   WebSocketChannel? get channel => _channel;
   String get status => _status;
   Uint8List? get lastFrame => _lastFrame;
-  Map<String, dynamic>? get lastJsonMessage => _lastJsonMessage;
   bool get isConnected => _isConnected;
 
   /// Register callback for eye tracking data
@@ -38,11 +36,11 @@ class WebSocketProvider with ChangeNotifier {
 
   void connect(String url) {
     if (_isConnected) {
-      print('ℹ️ Już połączony.');
+      debugPrint('ℹ️ Już połączony.');
       return;
     }
     try {
-      print('🔗 Łączenie się z: $url');
+      debugPrint('🔗 Łączenie się z: $url');
       _status = 'Łączenie...';
       notifyListeners();
 
@@ -54,7 +52,7 @@ class WebSocketProvider with ChangeNotifier {
 
       sendMessage({"type": "command", "action": "request_state"});
 
-      print('📡 Wysłano zapytanie o stan sceny...');
+      debugPrint('📡 Wysłano zapytanie o stan sceny...');
       notifyListeners();
 
       ch.stream.listen(
@@ -67,11 +65,11 @@ class WebSocketProvider with ChangeNotifier {
           } else if (event is String) {
             _handleTextMessage(event);
           } else {
-            print('❓ Nieznany typ eventu: ${event.runtimeType}');
+            debugPrint('❓ Nieznany typ eventu: ${event.runtimeType}');
           }
         },
         onDone: () {
-          print('🔌 Stream zakończony');
+          debugPrint('🔌 Stream zakończony');
           _status = 'Rozłączony';
           _channel = null;
           _isConnected = false;
@@ -81,7 +79,7 @@ class WebSocketProvider with ChangeNotifier {
           notifyListeners();
         },
         onError: (e) {
-          print('❌ Błąd streamu: $e');
+          debugPrint('❌ Błąd streamu: $e');
           _status = 'Błąd połączenia: $e';
           _channel = null;
           _isConnected = false;
@@ -93,7 +91,7 @@ class WebSocketProvider with ChangeNotifier {
         cancelOnError: true,
       );
     } catch (e) {
-      print('❌ Wyjątek w _connect: $e');
+      debugPrint('❌ Wyjątek w _connect: $e');
       _status = 'Wyjątek: $e';
       _isConnected = false;
       notifyListeners();
@@ -112,36 +110,35 @@ class WebSocketProvider with ChangeNotifier {
       _status = 'Otrzymano klatkę JPEG (${_lastFrame!.lengthInBytes} B)';
       notifyListeners(); // To odpali Selector w Viewere i odświeży obraz
     } else {
-      print('❓ Otrzymano nieznany pakiet binarny (prefix: ${data[0]})');
+      debugPrint('❓ Otrzymano nieznany pakiet binarny (prefix: ${data[0]})');
     }
   }
 
   void _handleTextMessage(String message) {
     try {
       final data = json.decode(message) as Map<String, dynamic>;
-      _lastJsonMessage = data;
       final type = data['type'] as String?;
 
-      print('📩 WS JSON received: $type');
+      debugPrint('📩 WS JSON received: $type');
 
       // Handle eye tracking data separately
       if (type == 'eye_tracking') {
-        print('👁️ Forwarding eye_tracking to EyeTrackingProvider');
+        debugPrint('👁️ Forwarding eye_tracking to EyeTrackingProvider');
         _onEyeTrackingData?.call(data);
         return;
       }
 
       // Handle EEG data separately
       if (type == 'eeg_data') {
-        print('🧠 Forwarding eeg_data to EegProvider');
+        debugPrint('🧠 Forwarding eeg_data to EegProvider');
         _onEegData?.call(data);
         return;
       }
 
       _status = 'Otrzymano dane JSON: ${type ?? 'nieznany'}';
-      print('✅ Otrzymano JSON: ${data.keys.first}...');
+      debugPrint('✅ Otrzymano JSON: ${data.keys.first}...');
     } catch (e) {
-      print('❌ Błąd parsowania JSON: $e');
+      debugPrint('❌ Błąd parsowania JSON: $e');
       _status = 'Błąd danych JSON';
     }
     notifyListeners();
@@ -149,16 +146,16 @@ class WebSocketProvider with ChangeNotifier {
 
   void sendMessage(Map<String, dynamic> message) {
     if (!_isConnected || _channel == null) {
-      print('❌ Brak połączenia WebSocket, nie można wysłać wiadomości.');
+      debugPrint('❌ Brak połączenia WebSocket, nie można wysłać wiadomości.');
       return;
     }
 
     try {
       final jsonString = json.encode(message);
       _channel!.sink.add(jsonString);
-      print('📤 Wysłano: $jsonString');
+      debugPrint('📤 Wysłano: $jsonString');
     } catch (e) {
-      print('❌ Błąd wysyłania wiadomości: $e');
+      debugPrint('❌ Błąd wysyłania wiadomości: $e');
       _status = 'Błąd wysyłania';
       notifyListeners();
     }
@@ -177,7 +174,7 @@ class WebSocketProvider with ChangeNotifier {
     _status = 'Rozłączony';
     _lastFrame = null;
     notifyListeners();
-    print('🔌 Rozłączono manualnie.');
+    debugPrint('🔌 Rozłączono manualnie.');
   }
 
   @override

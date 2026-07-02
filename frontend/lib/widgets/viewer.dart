@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/web_socket_provider.dart';
-import '../providers/device_provider.dart';
 import '../providers/eye_tracking_provider.dart';
 import 'eye_tracking_overlay.dart';
 import 'dart:typed_data';
@@ -18,9 +17,6 @@ class Viewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Pobieramy dane o urządzeniu (rzadkie zmiany)
-    final deviceProvider = context.watch<DeviceProvider>();
-
     return Expanded(
       child: Stack(
         children: [
@@ -48,7 +44,7 @@ class Viewer extends StatelessWidget {
             Positioned(
               top: 16,
               left: 16,
-              child: _buildFloatingMenuButton(context, deviceProvider),
+              child: _buildFloatingMenuButton(context),
             ),
 
           // 3. EYE TRACKING TOGGLE (Top-right corner)
@@ -183,10 +179,7 @@ class Viewer extends StatelessWidget {
   }
 
   // Przycisk menu z informacją o połączeniu
-  Widget _buildFloatingMenuButton(
-    BuildContext context,
-    DeviceProvider deviceProvider,
-  ) {
+  Widget _buildFloatingMenuButton(BuildContext context) {
     return Material(
       elevation: 4,
       borderRadius: BorderRadius.circular(8),
@@ -203,11 +196,10 @@ class Viewer extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.menu, size: 20, color: Colors.grey.shade700),
-              // Selector sprawia, że ikona połączenia zmienia się tylko gdy zmienia się stan kanału
               Selector<WebSocketProvider, bool>(
                 selector: (_, provider) => provider.isConnected,
                 builder: (context, isConnected, _) {
-                  if (deviceProvider.selectedDevice == null) {
+                  if (!isConnected) {
                     return const SizedBox.shrink();
                   }
 
@@ -221,7 +213,7 @@ class Viewer extends StatelessWidget {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        deviceProvider.selectedDevice!.host,
+                        'Backend',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade800,

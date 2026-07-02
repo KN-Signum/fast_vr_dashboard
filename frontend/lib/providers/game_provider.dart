@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
 import 'dart:js_interop';
@@ -11,25 +10,11 @@ class GameProvider with ChangeNotifier {
   // Lista akcji: Teraz używamy Map, żeby trzymać też etykiety przycisków
   List<Map<String, dynamic>> _gameActions = [];
 
-  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
-      GlobalKey<ScaffoldMessengerState>();
-  Uint8List? _lastFrame;
-
-  Uint8List? get lastFrame => _lastFrame;
   String get currentScreen => _currentScreen;
   List<Map<String, dynamic>> get gameActions => _gameActions;
-  GlobalKey<ScaffoldMessengerState> get scaffoldMessengerKey =>
-      _scaffoldMessengerKey;
-
-  // Wywoływane przez WebSocketProvider dla obrazu
-  void updateFrame(Uint8List frame) {
-    _lastFrame = frame;
-    notifyListeners();
-  }
 
   // Główny mózg odbierania komunikatów JSON
-  void handleMessage(String message, Uint8List? frame) {
-    _lastFrame = frame;
+  void handleMessage(String message) {
     try {
       final data = json.decode(message);
 
@@ -46,7 +31,7 @@ class GameProvider with ChangeNotifier {
                 data['available_actions'],
               );
             }
-            print(
+            debugPrint(
               '📱 Zmiana widoku na: $_currentScreen. Dostępne akcje: ${_gameActions.length}',
             );
             notifyListeners();
@@ -70,7 +55,7 @@ class GameProvider with ChangeNotifier {
             break;
 
           default:
-            print('❓ Inny typ wiadomości: $type');
+            debugPrint('❓ Inny typ wiadomości: $type');
         }
       }
     } catch (e) {
@@ -81,21 +66,16 @@ class GameProvider with ChangeNotifier {
   // --- LOGIKA POMOCNICZA (Twoje stare funkcje) ---
 
   void _handleActionCompleted(Map<String, dynamic> data) {
-    print('✅ Akcja zakończona: ${data['action']}');
+    debugPrint('✅ Akcja zakończona: ${data['action']}');
     if (data.containsKey('image_base64')) {
       _downloadCanvasImage(data);
-    }
-    if (scaffoldMessengerKey.currentState != null) {
-      scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('Wykonano: ${data['action']}')),
-      );
     }
   }
 
   void _handleNonJsonFallback(String message) {
     final trimmed = message.trim();
     if (trimmed.startsWith('data:image') || trimmed.length > 500) {
-      print('🖼️ Wykryto surowy Base64 obrazu, próbuję zapisać...');
+      debugPrint('🖼️ Wykryto surowy Base64 obrazu, próbuję zapisać...');
       // ... (tu kod Base64, który miałeś)
     }
   }
@@ -117,12 +97,7 @@ class GameProvider with ChangeNotifier {
       anchor.click();
       web.URL.revokeObjectURL(url);
     } catch (e) {
-      print('❌ Błąd zapisu: $e');
+      debugPrint('❌ Błąd zapisu: $e');
     }
-  }
-
-  void setCurrentScreen(String screen) {
-    _currentScreen = screen;
-    notifyListeners();
   }
 }

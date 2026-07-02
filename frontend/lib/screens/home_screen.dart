@@ -45,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _subscription = wsProvider.stream.listen((message) {
       if (message is String) {
-        gameProvider.handleMessage(message, wsProvider.lastFrame);
+        gameProvider.handleMessage(message);
       }
     });
   }

@@ -107,27 +107,17 @@ class EyeTrackingProvider with ChangeNotifier {
   EyeTrackingData? get lastEyeData => _lastEyeData;
   bool get isEnabled => _isEnabled;
 
-  void updateEyeData(EyeTrackingData data) {
-    _lastEyeData = data;
-    notifyListeners();
-  }
-
   void updateFromJson(Map<String, dynamic> json) {
     try {
       _lastEyeData = EyeTrackingData.fromJson(json);
       notifyListeners();
     } catch (e) {
-      print('❌ Failed to parse eye tracking data: $e');
+      debugPrint('❌ Failed to parse eye tracking data: $e');
     }
   }
 
   void toggleEyeTracking() {
     _isEnabled = !_isEnabled;
-    notifyListeners();
-  }
-
-  void setEyeTrackingEnabled(bool enabled) {
-    _isEnabled = enabled;
     notifyListeners();
   }
 

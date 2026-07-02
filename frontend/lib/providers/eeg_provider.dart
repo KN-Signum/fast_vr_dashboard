@@ -73,10 +73,6 @@ class EegProvider with ChangeNotifier {
   // Rolling buffer of snapshots (fixed max length = kEegBufferSize)
   final Queue<EegSnapshot> _buffer = Queue();
 
-  bool _isEnabled = true;
-
-  bool get isEnabled => _isEnabled;
-
   /// Unmodifiable view of the rolling buffer.
   List<EegSnapshot> get snapshots => _buffer.toList(growable: false);
 
@@ -106,39 +102,8 @@ class EegProvider with ChangeNotifier {
     }
   }
 
-  /// Returns a list of [count] averaged-across-channels values for [band]
-  /// from the rolling buffer — used to populate a line chart.
-  List<double> bandTimeSeries(String band, {int? count}) {
-    final snaps = _buffer.toList();
-    final n = count ?? snaps.length;
-    final slice = snaps.length > n ? snaps.sublist(snaps.length - n) : snaps;
-    return slice.map((s) {
-      final vals = s.bandPower[band];
-      if (vals == null || vals.isEmpty) return 0.0;
-      return vals.reduce((a, b) => a + b) / vals.length;
-    }).toList();
-  }
-
-  /// Returns per-channel ERD% values from the most recent snapshot for [band].
-  /// Returns empty list if no data or band not found.
-  List<double> latestErd(String band) {
-    final snap = latest;
-    if (snap == null) return [];
-    final erd = snap.erd[band];
-    if (erd == null || erd.isEmpty) {
-      // Return zeros matching channel count if ERD data missing
-      return List.filled(snap.channels.length, 0.0);
-    }
-    return erd;
-  }
-
   /// Returns the list of channel names from the most recent snapshot.
   List<String> getChannels() {
     return latest?.channels ?? kEegChannels;
-  }
-
-  void toggleEnabled() {
-    _isEnabled = !_isEnabled;
-    notifyListeners();
   }
 }
