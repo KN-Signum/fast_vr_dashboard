@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -7,11 +8,17 @@ from starlette.middleware.cors import CORSMiddleware
 from typing import List
 from contextlib import asynccontextmanager
 from et_mock import eye_tracking_mock_task, et_stream_enabled
-from eeg_stream import eeg_stream_task, eeg_stream_enabled as eeg_enabled
 from beacon_manager import BeaconManager
 
+USE_REAL_EEG = 0
+
+if USE_REAL_EEG:
+    from eeg_stream import eeg_stream_task
+else:
+    from eeg_mock import eeg_mock_task as eeg_stream_task
+
 et_stream_task  = None
-# eeg_task       = None  # Uncomment when device is ready
+eeg_task = None
 beacon = BeaconManager(ws_port=8080)  # match your uvicorn port
 
 class ConnectionManager:
@@ -45,10 +52,10 @@ manager = ConnectionManager()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    global et_stream_task
+    global et_stream_task, eeg_task
     print("🧠 Inicjalizacja strumienia danych...")
+    print(f"🧪 EEG mode: {'real' if USE_REAL_EEG else 'mock'}")
     et_stream_task = asyncio.create_task(eye_tracking_mock_task(manager))
-    global eeg_task
     eeg_task = asyncio.create_task(eeg_stream_task(manager))
     await beacon.start() 
 
@@ -65,10 +72,7 @@ async def lifespan(app: FastAPI):
             await et_stream_task
         except asyncio.CancelledError:
             pass
-    global eeg_task
-
-    if eeg_task:          # Uncomment when device is ready
-        eeg_enabled = False
+    if eeg_task:
         eeg_task.cancel()
         try:
             await eeg_task
@@ -98,6 +102,7 @@ app.add_middleware(WasmSecurityMiddleware)
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
+    print(f"🔌 WS connected: {websocket.client}")
     # await beacon.stop() 
     try:
         while True:
@@ -106,9 +111,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 await manager.broadcast_binary(data["bytes"], sender=websocket)
             elif "text" in data:
                 message = json.loads(data["text"])
+                print(f"📨 WS text received: {message.get('type', 'unknown')}")
                 await manager.broadcast_json(message, sender=websocket)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+        print(f"🔌 WS disconnected: {websocket.client}")
     except Exception as e:
         print(f"⚠️ Błąd połączenia: {e}")
         manager.disconnect(websocket)
@@ -121,4 +128,5 @@ if __name__ == "__main__":
     # Uruchamiamy na 8080
     uvicorn.run(app, host="0.0.0.0", port=8080)
 
+# Set USE_REAL_EEG=1 to use the BrainAccess-backed EEG stream.
 # uv run uvicorn main:app --reload --port 8080

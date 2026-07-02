@@ -122,14 +122,18 @@ class WebSocketProvider with ChangeNotifier {
       _lastJsonMessage = data;
       final type = data['type'] as String?;
 
+      print('📩 WS JSON received: $type');
+
       // Handle eye tracking data separately
       if (type == 'eye_tracking') {
+        print('👁️ Forwarding eye_tracking to EyeTrackingProvider');
         _onEyeTrackingData?.call(data);
         return;
       }
 
       // Handle EEG data separately
       if (type == 'eeg_data') {
+        print('🧠 Forwarding eeg_data to EegProvider');
         _onEegData?.call(data);
         return;
       }

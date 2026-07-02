@@ -85,14 +85,19 @@ class EegProvider with ChangeNotifier {
 
   void updateFromJson(Map<String, dynamic> json) {
     try {
+      debugPrint('🧠 EEG raw payload keys: ${json.keys.toList()}');
       final snapshot = EegSnapshot.fromJson(json);
       _buffer.addLast(snapshot);
       if (_buffer.length > kEegBufferSize) _buffer.removeFirst();
 
       // Debug logging
-      debugPrint('✅ EEG: ${snapshot.channels.length} channels ${snapshot.channels}, '
-          'alpha=${snapshot.bandPower['alpha']?.length ?? 0} values, '
-          'beta=${snapshot.bandPower['beta']?.length ?? 0} values');
+      debugPrint(
+        '✅ EEG snapshot: channels=${snapshot.channels.length} '
+        'samplingRate=${snapshot.samplingRate} '
+        'focus=${snapshot.focusIndex.toStringAsFixed(3)} '
+        'alpha=${snapshot.bandPower['alpha']?.length ?? 0} '
+        'beta=${snapshot.bandPower['beta']?.length ?? 0}',
+      );
 
       notifyListeners();
     } catch (e) {
