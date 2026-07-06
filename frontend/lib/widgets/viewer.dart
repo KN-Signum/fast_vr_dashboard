@@ -4,6 +4,7 @@ import '../providers/web_socket_provider.dart';
 import '../providers/eye_tracking_provider.dart';
 import '../theme/app_style.dart';
 import 'eye_tracking_overlay.dart';
+import 'session_timeline.dart';
 import 'dart:typed_data';
 
 class Viewer extends StatelessWidget {
@@ -19,41 +20,41 @@ class Viewer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Stack(
+      child: Column(
         children: [
-          // 1. OBSZAR STREAMINGU (Tylko to odświeża się 20+ razy na sekundę)
-          Container(
-            color: AppColors.viewer,
-            child: Center(
-              child: Selector<WebSocketProvider, Uint8List?>(
-                // Selector sprawia, że ten fragment kodu reaguje TYLKO na zmianę lastFrame
-                selector: (_, provider) => provider.lastFrame,
-                builder: (context, frame, _) {
-                  if (frame == null) {
-                    return _buildPlaceholder();
-                  }
+          Expanded(
+            child: Stack(
+              children: [
+                Container(
+                  color: AppColors.viewer,
+                  child: Center(
+                    child: Selector<WebSocketProvider, Uint8List?>(
+                      selector: (_, provider) => provider.lastFrame,
+                      builder: (context, frame, _) {
+                        if (frame == null) {
+                          return _buildPlaceholder();
+                        }
 
-                  // Build the preview with ET overlay
-                  return _buildPreviewWithEyeTracking(context, frame);
-                },
-              ),
+                        return _buildPreviewWithEyeTracking(context, frame);
+                      },
+                    ),
+                  ),
+                ),
+                if (!isDrawerOpen)
+                  Positioned(
+                    top: 16,
+                    left: 16,
+                    child: _buildFloatingMenuButton(context),
+                  ),
+                Positioned(
+                  top: 16,
+                  right: 16,
+                  child: _buildEyeTrackingToggle(context),
+                ),
+              ],
             ),
           ),
-
-          // 2. INTERFEJS NAKŁADKI (Odświeża się rzadko)
-          if (!isDrawerOpen)
-            Positioned(
-              top: 16,
-              left: 16,
-              child: _buildFloatingMenuButton(context),
-            ),
-
-          // 3. EYE TRACKING TOGGLE (Top-right corner)
-          Positioned(
-            top: 16,
-            right: 16,
-            child: _buildEyeTrackingToggle(context),
-          ),
+          const SessionTimeline(),
         ],
       ),
     );
@@ -127,7 +128,7 @@ class Viewer extends StatelessWidget {
             Icon(Icons.monitor, size: 58, color: Color(0xFF94A3B8)),
             SizedBox(height: 14),
             Text(
-              'Waiting for VR preview',
+              'Oczekiwanie na podgląd VR',
               style: TextStyle(
                 color: Color(0xFFE2E8F0),
                 fontSize: 16,
@@ -136,7 +137,7 @@ class Viewer extends StatelessWidget {
             ),
             SizedBox(height: 6),
             Text(
-              'The preview will appear when the headset sends frames.',
+              'Podgląd pojawi się, gdy gogle wyślą klatki obrazu.',
               style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
             ),
           ],
@@ -181,7 +182,7 @@ class Viewer extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                eyeTrackingProvider.isEnabled ? 'ET: ON' : 'ET: OFF',
+                eyeTrackingProvider.isEnabled ? 'ET: WŁ.' : 'ET: WYŁ.',
                 style: TextStyle(
                   fontSize: 12,
                   color: eyeTrackingProvider.isEnabled
@@ -233,7 +234,7 @@ class Viewer extends StatelessWidget {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        'Backend',
+                        'Serwer',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.text,

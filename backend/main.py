@@ -129,4 +129,4 @@ if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
 
 # Set USE_REAL_EEG=1 to use the BrainAccess-backed EEG stream.
-# uv run uvicorn main:app --reload --port 8080
+# uv uv run uvicorn main:app --host 0.0.0.0 --port 8080

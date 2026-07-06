@@ -128,13 +128,13 @@ async def eeg_mock_task(manager) -> None:
         while eeg_mock_enabled:
             payload = build_mock_eeg_payload()
             tick += 1
-            if tick % 10 == 0:
-                print(
-                    "🧪 EEG mock payload: "
-                    f"channels={payload['channels']} "
-                    f"focus={payload['focus_index']:.3f} "
-                    f"alpha0={payload['band_power']['alpha'][0]:.2f}"
-                )
+            # if tick % 10 == 0:
+            #     print(
+            #         "🧪 EEG mock payload: "
+            #         f"channels={payload['channels']} "
+            #         f"focus={payload['focus_index']:.3f} "
+            #         f"alpha0={payload['band_power']['alpha'][0]:.2f}"
+            #     )
             await manager.broadcast_json(payload)
             await asyncio.sleep(TICK_SECONDS)
     except asyncio.CancelledError:

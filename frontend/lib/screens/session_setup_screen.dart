@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/eeg_provider.dart';
+import '../providers/eye_tracking_provider.dart';
 import '../providers/session_provider.dart';
 import '../providers/web_socket_provider.dart';
 import '../theme/app_style.dart';
@@ -49,6 +50,7 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
   Widget build(BuildContext context) {
     final ws = context.watch<WebSocketProvider>();
     final eeg = context.watch<EegProvider>();
+    final eyeTracking = context.watch<EyeTrackingProvider>();
     final session = context.read<SessionProvider>();
     final patientId = _patientIdController.text.trim();
 
@@ -63,12 +65,12 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 AppHeader(
-                  title: 'NEXT Dashboard',
-                  subtitle: 'Create a session and verify device readiness.',
+                  title: 'Panel NEXT',
+                  subtitle: 'Utwórz sesję i sprawdź gotowość urządzeń.',
                   trailing: StatusPill(
                     label: ws.isConnected
-                        ? 'BACKEND ONLINE'
-                        : 'BACKEND WAITING',
+                        ? 'SERWER POŁĄCZONY'
+                        : 'OCZEKIWANIE NA SERWER',
                     online: ws.isConnected,
                     icon: Icons.hub,
                   ),
@@ -104,14 +106,18 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
                       child: _ConnectionStatusCard(
                         backendOnline: ws.isConnected,
                         eegOnline: _isRecent(eeg.latest?.timestamp),
-                        vrOnline: _isRecent(_latestVrAt(ws)),
+                        vrOnline: _isRecent(ws.lastFrameAt),
+                        eyeTrackingOnline: eyeTracking.isReceiving,
                         backendDetail: ws.status,
                         eegDetail: eeg.latest == null
-                            ? 'Waiting for EEG data'
-                            : 'Last EEG ${_formatAge(eeg.latest!.timestamp)} ago',
-                        vrDetail: _latestVrAt(ws) == null
-                            ? 'Waiting for VR data'
-                            : 'Last VR ${_formatAge(_latestVrAt(ws)!)} ago',
+                            ? 'Oczekiwanie na dane EEG'
+                            : 'Ostatnie EEG ${_formatAge(eeg.latest!.timestamp)} temu',
+                        vrDetail: ws.lastFrameAt == null
+                            ? 'Oczekiwanie na podgląd wideo'
+                            : 'Ostatnia klatka ${_formatAge(ws.lastFrameAt!)} temu',
+                        eyeTrackingDetail: ws.lastEyeTrackingAt == null
+                            ? 'Oczekiwanie na dane z gogli'
+                            : 'Ostatni punkt wzroku ${_formatAge(ws.lastEyeTrackingAt!)} temu',
                       ),
                     ),
                   ],
@@ -124,14 +130,6 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
     );
   }
 
-  DateTime? _latestVrAt(WebSocketProvider ws) {
-    final frameAt = ws.lastFrameAt;
-    final messageAt = ws.lastVrMessageAt;
-    if (frameAt == null) return messageAt;
-    if (messageAt == null) return frameAt;
-    return frameAt.isAfter(messageAt) ? frameAt : messageAt;
-  }
-
   bool _isRecent(DateTime? value) {
     if (value == null) return false;
     return DateTime.now().difference(value) <= const Duration(seconds: 3);
@@ -139,7 +137,7 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
 
   String _formatAge(DateTime value) {
     final seconds = DateTime.now().difference(value).inSeconds;
-    return '${seconds}s';
+    return '$seconds s';
   }
 }
 
@@ -180,7 +178,7 @@ class _SessionFormCard extends StatelessWidget {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
-                  'New session',
+                  'Nowa sesja',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: AppColors.text,
@@ -192,23 +190,20 @@ class _SessionFormCard extends StatelessWidget {
           const SizedBox(height: 20),
           TextField(
             controller: patientIdController,
-            decoration: appInputDecoration('Patient ID'),
+            decoration: appInputDecoration('ID pacjenta'),
           ),
           const SizedBox(height: 14),
           DropdownButtonFormField<String>(
             initialValue: preferredHand,
-            decoration: appInputDecoration('Preferred hand'),
+            decoration: appInputDecoration('Preferowana ręka'),
             items: const [
               DropdownMenuItem(
                 value: 'not_specified',
-                child: Text('Not specified'),
+                child: Text('Nie określono'),
               ),
-              DropdownMenuItem(value: 'left', child: Text('Left')),
-              DropdownMenuItem(value: 'right', child: Text('Right')),
-              DropdownMenuItem(
-                value: 'ambidextrous',
-                child: Text('Ambidextrous'),
-              ),
+              DropdownMenuItem(value: 'left', child: Text('Lewa')),
+              DropdownMenuItem(value: 'right', child: Text('Prawa')),
+              DropdownMenuItem(value: 'ambidextrous', child: Text('Oburęczny')),
             ],
             onChanged: onPreferredHandChanged,
           ),
@@ -218,14 +213,14 @@ class _SessionFormCard extends StatelessWidget {
             minLines: 3,
             maxLines: 5,
             decoration: appInputDecoration(
-              'Notes',
+              'Notatki',
             ).copyWith(alignLabelWithHint: true),
           ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
             onPressed: onCreate,
             icon: const Icon(Icons.play_arrow),
-            label: const Text('Create session'),
+            label: const Text('Utwórz sesję'),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
@@ -240,17 +235,21 @@ class _ConnectionStatusCard extends StatelessWidget {
   final bool backendOnline;
   final bool eegOnline;
   final bool vrOnline;
+  final bool eyeTrackingOnline;
   final String backendDetail;
   final String eegDetail;
   final String vrDetail;
+  final String eyeTrackingDetail;
 
   const _ConnectionStatusCard({
     required this.backendOnline,
     required this.eegOnline,
     required this.vrOnline,
+    required this.eyeTrackingOnline,
     required this.backendDetail,
     required this.eegDetail,
     required this.vrDetail,
+    required this.eyeTrackingDetail,
   });
 
   @override
@@ -265,7 +264,7 @@ class _ConnectionStatusCard extends StatelessWidget {
               const Icon(Icons.checklist, color: AppColors.primary, size: 20),
               const SizedBox(width: 8),
               Text(
-                'Device readiness',
+                'Gotowość urządzeń',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                   color: AppColors.text,
@@ -276,7 +275,7 @@ class _ConnectionStatusCard extends StatelessWidget {
           const SizedBox(height: 14),
           _StatusRow(
             icon: Icons.hub,
-            label: 'Backend',
+            label: 'Serwer',
             online: backendOnline,
             detail: backendDetail,
           ),
@@ -291,6 +290,12 @@ class _ConnectionStatusCard extends StatelessWidget {
             label: 'VR',
             online: vrOnline,
             detail: vrDetail,
+          ),
+          _StatusRow(
+            icon: Icons.visibility,
+            label: 'Wzrok',
+            online: eyeTrackingOnline,
+            detail: eyeTrackingDetail,
           ),
         ],
       ),
@@ -351,7 +356,10 @@ class _StatusRow extends StatelessWidget {
                 ],
               ),
             ),
-            StatusPill(label: online ? 'ONLINE' : 'WAITING', online: online),
+            StatusPill(
+              label: online ? 'POŁĄCZONO' : 'OCZEKUJE',
+              online: online,
+            ),
           ],
         ),
       ),

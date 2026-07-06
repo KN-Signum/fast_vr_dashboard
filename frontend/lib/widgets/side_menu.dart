@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/eeg_provider.dart';
+import '../providers/eye_tracking_provider.dart';
 import '../providers/session_provider.dart';
 import '../providers/web_socket_provider.dart';
 import '../theme/app_style.dart';
@@ -22,11 +23,8 @@ class SideMenu extends StatelessWidget {
     }
 
     return Container(
-      width: 280,
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(right: BorderSide(color: AppColors.border)),
-      ),
+      width: 200,
+      decoration: const BoxDecoration(color: AppColors.surface),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -39,7 +37,7 @@ class SideMenu extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: () => context.read<SessionProvider>().endSession(),
               icon: const Icon(Icons.stop_circle),
-              label: const Text('End session'),
+              label: const Text('Zakończ sesję'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red.shade100,
                 foregroundColor: Colors.red.shade900,
@@ -56,7 +54,7 @@ class SideMenu extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Created by',
+                  'Autor',
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -95,7 +93,7 @@ class _SessionHeader extends StatelessWidget {
             children: [
               const Expanded(
                 child: Text(
-                  'NEXT Dashboard',
+                  'Panel NEXT',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -217,7 +215,7 @@ class _LiveStatusStripState extends State<_LiveStatusStrip> {
   Widget build(BuildContext context) {
     final ws = context.watch<WebSocketProvider>();
     final eeg = context.watch<EegProvider>();
-    final latestVr = _latestVrAt(ws);
+    final eyeTracking = context.watch<EyeTrackingProvider>();
 
     return Padding(
       padding: const EdgeInsets.all(14),
@@ -225,7 +223,7 @@ class _LiveStatusStripState extends State<_LiveStatusStrip> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            'LIVE DATA',
+            'DANE NA ŻYWO',
             style: TextStyle(
               color: AppColors.muted,
               fontSize: 10,
@@ -235,7 +233,7 @@ class _LiveStatusStripState extends State<_LiveStatusStrip> {
           ),
           const SizedBox(height: 10),
           _CompactStatus(
-            label: 'Backend',
+            label: 'Serwer',
             online: ws.isConnected,
             icon: Icons.hub,
           ),
@@ -245,21 +243,18 @@ class _LiveStatusStripState extends State<_LiveStatusStrip> {
             icon: Icons.psychology,
           ),
           _CompactStatus(
-            label: 'VR / ET',
-            online: _isRecent(latestVr),
+            label: 'VR',
+            online: _isRecent(ws.lastFrameAt),
             icon: Icons.videocam,
+          ),
+          _CompactStatus(
+            label: 'Wzrok',
+            online: eyeTracking.isReceiving,
+            icon: Icons.visibility,
           ),
         ],
       ),
     );
-  }
-
-  DateTime? _latestVrAt(WebSocketProvider ws) {
-    final frameAt = ws.lastFrameAt;
-    final messageAt = ws.lastVrMessageAt;
-    if (frameAt == null) return messageAt;
-    if (messageAt == null) return frameAt;
-    return frameAt.isAfter(messageAt) ? frameAt : messageAt;
   }
 
   bool _isRecent(DateTime? value) {

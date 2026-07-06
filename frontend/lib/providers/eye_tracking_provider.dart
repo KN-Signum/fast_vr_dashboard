@@ -44,12 +44,16 @@ class EyeTrackingData {
   final Vector3 playerPosition;
   final Vector3 eyesPosition;
   final EyeTransform eyesTransform;
+  final double? gazeScreenX;
+  final double? gazeScreenY;
   final DateTime timestamp;
 
   EyeTrackingData({
     required this.playerPosition,
     required this.eyesPosition,
     required this.eyesTransform,
+    this.gazeScreenX,
+    this.gazeScreenY,
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 
@@ -64,39 +68,45 @@ class EyeTrackingData {
       eyesTransform: EyeTransform.fromJson(
         json['eyes_transform'] as Map<String, dynamic>,
       ),
+      gazeScreenX: _optionalScreenCoord(json['gaze_screen_x']),
+      gazeScreenY: _optionalScreenCoord(json['gaze_screen_y']),
     );
   }
 
-  /// Convert 3D world position to 2D screen coordinates
-  /// Simple heuristic: Map X,Y to screen space assuming a top-down view
-  ///
-  /// TODO: For production, calibrate with actual game camera parameters:
-  ///   - Camera position in world space
-  ///   - Camera FOV and projection matrix
-  ///   - World-to-screen transformation
+  static double? _optionalDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return null;
+  }
+
+  static double? _optionalScreenCoord(dynamic value) {
+    if (value is! num) return null;
+    final coord = value.toDouble();
+    if (coord < 0) return null;
+    return coord;
+  }
+
+  /// Map gaze to preview coordinates.
+  /// Prefers normalized spectator-camera UVs from the headset when present.
   Offset toScreenCoordinate(Size screenSize) {
-    // Simple mapping: Normalize world coordinates to screen space
-    // Adjust these constants based on your game world size and camera setup
-    const double minX = 100.0; // Game world X bounds
-    const double maxX = 150.0;
-    const double minZ = 80.0; // Game world Z bounds
-    const double maxZ = 110.0;
+    if (gazeScreenX != null && gazeScreenY != null) {
+      return Offset(
+        gazeScreenX!.clamp(0.0, 1.0) * screenSize.width,
+        (1.0 - gazeScreenY!.clamp(0.0, 1.0)) * screenSize.height,
+      );
+    }
 
-    // Clamp and normalize to 0-1 range
-    double normalizedX = ((eyesPosition.x - minX) / (maxX - minX)).clamp(
-      0.0,
-      1.0,
+    // Fallback: project gaze hit point relative to the player on the XZ plane.
+    const worldSpan = 24.0;
+    final dx = eyesPosition.x - playerPosition.x;
+    final dz = eyesPosition.z - playerPosition.z;
+
+    final normalizedX = (0.5 + (dx / worldSpan)).clamp(0.0, 1.0);
+    final normalizedY = (0.5 - (dz / worldSpan)).clamp(0.0, 1.0);
+
+    return Offset(
+      normalizedX * screenSize.width,
+      normalizedY * screenSize.height,
     );
-    double normalizedZ = ((eyesPosition.z - minZ) / (maxZ - minZ)).clamp(
-      0.0,
-      1.0,
-    );
-
-    // Map to screen coordinates (invert Z for screen Y)
-    double screenX = normalizedX * screenSize.width;
-    double screenY = (1.0 - normalizedZ) * screenSize.height;
-
-    return Offset(screenX, screenY);
   }
 }
 
@@ -106,6 +116,11 @@ class EyeTrackingProvider with ChangeNotifier {
 
   EyeTrackingData? get lastEyeData => _lastEyeData;
   bool get isEnabled => _isEnabled;
+  bool get isReceiving {
+    final data = _lastEyeData;
+    if (data == null) return false;
+    return DateTime.now().difference(data.timestamp) <= const Duration(seconds: 3);
+  }
 
   void updateFromJson(Map<String, dynamic> json) {
     try {
@@ -121,13 +136,10 @@ class EyeTrackingProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Get both eye gaze positions (for future: implement actual eye separation)
   List<Offset> getGazePoints(Size screenSize) {
     if (_lastEyeData == null) return [];
 
-    // For now, both eyes converge at the same point
-    // TODO: Separate left/right eye gaze based on eyes_transform divergence
     final gazePoint = _lastEyeData!.toScreenCoordinate(screenSize);
-    return [gazePoint]; // Return as list for future expansion to 2 points
+    return [gazePoint];
   }
 }

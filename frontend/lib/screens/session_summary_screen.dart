@@ -18,27 +18,33 @@ class SessionSummaryScreen extends StatelessWidget {
     final counts = report['counts'] as Map<String, dynamic>;
 
     return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1040),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _SummaryHeader(session: session),
-                const SizedBox(height: AppSpacing.lg),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: _MetadataCard(session: session)),
-                    const SizedBox(width: AppSpacing.lg),
-                    Expanded(child: _CountsCard(counts: counts)),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1040),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _SummaryHeader(session: session),
+                  const SizedBox(height: AppSpacing.lg),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _MetadataCard(session: session)),
+                      const SizedBox(width: AppSpacing.lg),
+                      Expanded(child: _CountsCard(counts: counts)),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  _DownloadCard(session: session),
+                  if (session.sessionEvents.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    _EventsCard(events: session.sessionEvents),
                   ],
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                _DownloadCard(session: session),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -55,12 +61,12 @@ class _SummaryHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppHeader(
-      title: 'Session Summary',
-      subtitle: session.sessionId ?? 'No session',
+      title: 'Podsumowanie sesji',
+      subtitle: session.sessionId ?? 'Brak sesji',
       trailing: OutlinedButton.icon(
         onPressed: session.startNewSession,
         icon: const Icon(Icons.add),
-        label: const Text('New session'),
+        label: const Text('Nowa sesja'),
       ),
     );
   }
@@ -74,21 +80,24 @@ class _MetadataCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SummaryCard(
-      title: 'Patient',
+      title: 'Pacjent',
       icon: Icons.badge,
       children: [
-        _InfoRow(label: 'Patient ID', value: session.patientId),
+        _InfoRow(label: 'ID pacjenta', value: session.patientId),
         _InfoRow(
-          label: 'Preferred hand',
+          label: 'Preferowana ręka',
           value: _formatHand(session.preferredHand),
         ),
-        _InfoRow(label: 'Started', value: _formatDate(session.startedAt)),
-        _InfoRow(label: 'Ended', value: _formatDate(session.endedAt)),
-        _InfoRow(label: 'Duration', value: _formatDuration(session.duration)),
+        _InfoRow(label: 'Rozpoczęcie', value: _formatDate(session.startedAt)),
+        _InfoRow(label: 'Zakończenie', value: _formatDate(session.endedAt)),
+        _InfoRow(
+          label: 'Czas trwania',
+          value: _formatDuration(session.duration),
+        ),
         if (session.notes.isNotEmpty) ...[
           const SizedBox(height: 10),
           Text(
-            'Notes',
+            'Notatki',
             style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 4),
@@ -100,10 +109,10 @@ class _MetadataCard extends StatelessWidget {
 
   String _formatHand(String value) {
     return switch (value) {
-      'left' => 'Left',
-      'right' => 'Right',
-      'ambidextrous' => 'Ambidextrous',
-      _ => 'Not specified',
+      'left' => 'Lewa',
+      'right' => 'Prawa',
+      'ambidextrous' => 'Oburęczny',
+      _ => 'Nie określono',
     };
   }
 }
@@ -116,28 +125,33 @@ class _CountsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SummaryCard(
-      title: 'Recorded Data',
+      title: 'Zarejestrowane dane',
       icon: Icons.dataset,
       children: [
         _MetricTile(
-          label: 'EEG records',
+          label: 'Zapisy EEG',
           value: counts['eeg_records'] as int? ?? 0,
           color: AppColors.primary,
         ),
         _MetricTile(
-          label: 'Eye tracking records',
+          label: 'Zapisy śledzenia wzroku',
           value: counts['eye_tracking_records'] as int? ?? 0,
           color: AppColors.danger,
         ),
         _MetricTile(
-          label: 'VR events',
+          label: 'Zdarzenia VR',
           value: counts['vr_events'] as int? ?? 0,
           color: AppColors.success,
         ),
         _MetricTile(
-          label: 'VR frame stats',
+          label: 'Klatki VR',
           value: counts['vr_frames'] as int? ?? 0,
           color: const Color(0xFF7656B7),
+        ),
+        _MetricTile(
+          label: 'Zdarzenia obserwowane',
+          value: counts['session_events'] as int? ?? 0,
+          color: AppColors.warning,
         ),
       ],
     );
@@ -154,7 +168,7 @@ class _DownloadCard extends StatelessWidget {
     final sessionId = session.sessionId ?? 'session';
 
     return _SummaryCard(
-      title: 'Downloads',
+      title: 'Pobieranie',
       icon: Icons.download,
       children: [
         Row(
@@ -166,7 +180,7 @@ class _DownloadCard extends StatelessWidget {
                   data: session.summaryReport(),
                 ),
                 icon: const Icon(Icons.description),
-                label: const Text('Download summary report'),
+                label: const Text('Pobierz raport'),
               ),
             ),
             const SizedBox(width: 12),
@@ -177,7 +191,7 @@ class _DownloadCard extends StatelessWidget {
                   data: session.rawData(),
                 ),
                 icon: const Icon(Icons.data_object),
-                label: const Text('Download raw data'),
+                label: const Text('Pobierz dane surowe'),
               ),
             ),
           ],
@@ -199,6 +213,74 @@ class _DownloadCard extends StatelessWidget {
     anchor.download = filename;
     anchor.click();
     web.URL.revokeObjectURL(url);
+  }
+}
+
+class _EventsCard extends StatelessWidget {
+  final List<SessionEvent> events;
+
+  const _EventsCard({required this.events});
+
+  @override
+  Widget build(BuildContext context) {
+    return _SummaryCard(
+      title: 'Zdarzenia obserwowane',
+      icon: Icons.event_note,
+      children: events.map((event) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceAlt,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 62,
+                child: Text(
+                  _formatElapsedMs(event.elapsedMs),
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      event.label,
+                      style: const TextStyle(
+                        color: AppColors.text,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (event.note.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        event.note,
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Text(
+                _formatCategory(event.category),
+                style: const TextStyle(color: AppColors.muted, fontSize: 11),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
   }
 }
 
@@ -323,4 +405,23 @@ String _formatDuration(Duration? value) {
   final minutes = value.inMinutes.remainder(60).toString().padLeft(2, '0');
   final seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
   return '$hours:$minutes:$seconds';
+}
+
+String _formatElapsedMs(int elapsedMs) {
+  final duration = Duration(milliseconds: elapsedMs);
+  final hours = duration.inHours;
+  final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return hours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
+}
+
+String _formatCategory(String value) {
+  return switch (value) {
+    'patient_behavior' => 'Zachowanie pacjenta',
+    'patient_response' => 'Reakcja pacjenta',
+    'task' => 'Zadanie',
+    'support' => 'Wsparcie',
+    'custom' => 'Własne',
+    _ => value,
+  };
 }

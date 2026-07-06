@@ -24,7 +24,7 @@ class ViewerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SessionProvider()),
       ],
       child: MaterialApp(
-        title: 'VR Fast Dashboard',
+        title: 'Panel VR',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(

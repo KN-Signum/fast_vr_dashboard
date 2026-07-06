@@ -28,6 +28,36 @@ class VrFrameStat {
   };
 }
 
+class SessionEvent {
+  final String id;
+  final String label;
+  final String category;
+  final String note;
+  final DateTime occurredAt;
+  final int elapsedMs;
+  final String source;
+
+  SessionEvent({
+    required this.id,
+    required this.label,
+    required this.category,
+    required this.note,
+    required this.occurredAt,
+    required this.elapsedMs,
+    this.source = 'clinician',
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'label': label,
+    'category': category,
+    'note': note,
+    'occurred_at': occurredAt.toIso8601String(),
+    'elapsed_ms': elapsedMs,
+    'source': source,
+  };
+}
+
 class SessionProvider with ChangeNotifier {
   SessionStage _stage = SessionStage.setup;
   String? _sessionId;
@@ -41,6 +71,7 @@ class SessionProvider with ChangeNotifier {
   final List<RecordedPayload> _eyeTrackingRecords = [];
   final List<RecordedPayload> _vrEvents = [];
   final List<VrFrameStat> _vrFrameStats = [];
+  final List<SessionEvent> _sessionEvents = [];
 
   SessionStage get stage => _stage;
   String? get sessionId => _sessionId;
@@ -55,6 +86,7 @@ class SessionProvider with ChangeNotifier {
       List.unmodifiable(_eyeTrackingRecords);
   List<RecordedPayload> get vrEvents => List.unmodifiable(_vrEvents);
   List<VrFrameStat> get vrFrameStats => List.unmodifiable(_vrFrameStats);
+  List<SessionEvent> get sessionEvents => List.unmodifiable(_sessionEvents);
 
   bool get isActive => _stage == SessionStage.active;
 
@@ -74,7 +106,7 @@ class SessionProvider with ChangeNotifier {
       throw ArgumentError.value(
         patientId,
         'patientId',
-        'Patient ID is required',
+        'ID pacjenta jest wymagane',
       );
     }
 
@@ -169,6 +201,34 @@ class SessionProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void addClinicianEvent({
+    required String label,
+    required String category,
+    String note = '',
+    DateTime? occurredAt,
+  }) {
+    if (!isActive || _startedAt == null) return;
+
+    final trimmedLabel = label.trim();
+    if (trimmedLabel.isEmpty) return;
+
+    final timestamp = occurredAt ?? DateTime.now();
+    final elapsed = timestamp.difference(_startedAt!).inMilliseconds;
+    final safeElapsed = elapsed < 0 ? 0 : elapsed;
+
+    _sessionEvents.add(
+      SessionEvent(
+        id: 'event_${timestamp.microsecondsSinceEpoch}',
+        label: trimmedLabel,
+        category: category,
+        note: note.trim(),
+        occurredAt: timestamp,
+        elapsedMs: safeElapsed,
+      ),
+    );
+    notifyListeners();
+  }
+
   Map<String, dynamic> summaryReport() {
     final durationValue = duration;
     return {
@@ -186,6 +246,7 @@ class SessionProvider with ChangeNotifier {
         'eye_tracking_records': _eyeTrackingRecords.length,
         'vr_events': _vrEvents.length,
         'vr_frames': _vrFrameStats.length,
+        'session_events': _sessionEvents.length,
       },
     };
   }
@@ -198,6 +259,7 @@ class SessionProvider with ChangeNotifier {
         .toList(),
     'vr_events': _vrEvents.map((record) => record.toJson()).toList(),
     'vr_frame_stats': _vrFrameStats.map((record) => record.toJson()).toList(),
+    'session_events': _sessionEvents.map((event) => event.toJson()).toList(),
   };
 
   Map<String, dynamic> _copyPayload(Map<String, dynamic> payload) {
@@ -209,5 +271,6 @@ class SessionProvider with ChangeNotifier {
     _eyeTrackingRecords.clear();
     _vrEvents.clear();
     _vrFrameStats.clear();
+    _sessionEvents.clear();
   }
 }

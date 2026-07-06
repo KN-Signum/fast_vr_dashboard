@@ -72,7 +72,7 @@ class ControlSection extends StatelessWidget {
           const SizedBox(width: 8),
           const Expanded(
             child: Text(
-              'VR Controls',
+              'Sterowanie VR',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
@@ -138,7 +138,7 @@ class ControlSection extends StatelessWidget {
         // Rysujemy przyciski przesłane przez Unity (SceneStateSync)
         ...game.gameActions.map((actionData) {
           final action = actionData['action'] as String;
-          final label = actionData['label'] as String;
+          final label = _localizedActionLabel(actionData['label'] as String);
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -192,5 +192,18 @@ class ControlSection extends StatelessWidget {
     if (action.contains('save')) return Colors.blueAccent;
     if (action.contains('back')) return Colors.blueGrey;
     return Colors.indigo;
+  }
+
+  String _localizedActionLabel(String label) {
+    return switch (label.toLowerCase()) {
+      'clear' => 'Wyczyść',
+      'save' => 'Zapisz',
+      'next' => 'Dalej',
+      'back' => 'Wstecz',
+      'exit' => 'Wyjdź',
+      'continue' => 'Kontynuuj',
+      'start' => 'Start',
+      _ => label,
+    };
   }
 }

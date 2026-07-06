@@ -13,10 +13,11 @@ class WebSocketProvider with ChangeNotifier {
   WebSocketChannel? _channel;
   StreamController<dynamic> _streamController = StreamController.broadcast();
   Stream<dynamic> get stream => _streamController.stream;
-  String _status = 'Połącz z backendem, aby rozpocząć';
+  String _status = 'Połącz z serwerem, aby rozpocząć';
   Uint8List? _lastFrame;
   DateTime? _lastFrameAt;
   DateTime? _lastVrMessageAt;
+  DateTime? _lastEyeTrackingAt;
   bool _isConnected = false;
   OnEyeTrackingData? _onEyeTrackingData;
   OnEegData? _onEegData;
@@ -26,6 +27,7 @@ class WebSocketProvider with ChangeNotifier {
   Uint8List? get lastFrame => _lastFrame;
   DateTime? get lastFrameAt => _lastFrameAt;
   DateTime? get lastVrMessageAt => _lastVrMessageAt;
+  DateTime? get lastEyeTrackingAt => _lastEyeTrackingAt;
   bool get isConnected => _isConnected;
 
   static String defaultBackendUrl() {
@@ -96,6 +98,7 @@ class WebSocketProvider with ChangeNotifier {
           _isConnected = false;
           _lastFrameAt = null;
           _lastVrMessageAt = null;
+          _lastEyeTrackingAt = null;
           _streamController.close();
           _streamController =
               StreamController.broadcast(); // Re-create for next connection
@@ -108,6 +111,7 @@ class WebSocketProvider with ChangeNotifier {
           _isConnected = false;
           _lastFrameAt = null;
           _lastVrMessageAt = null;
+          _lastEyeTrackingAt = null;
           _streamController.close();
           _streamController =
               StreamController.broadcast(); // Re-create for next connection
@@ -149,7 +153,7 @@ class WebSocketProvider with ChangeNotifier {
 
       // Handle eye tracking data separately
       if (type == 'eye_tracking') {
-        debugPrint('👁️ Forwarding eye_tracking to EyeTrackingProvider');
+        _lastEyeTrackingAt = DateTime.now();
         _onEyeTrackingData?.call(data);
         return;
       }
@@ -202,6 +206,7 @@ class WebSocketProvider with ChangeNotifier {
     _lastFrame = null;
     _lastFrameAt = null;
     _lastVrMessageAt = null;
+    _lastEyeTrackingAt = null;
     notifyListeners();
     debugPrint('🔌 Rozłączono manualnie.');
   }

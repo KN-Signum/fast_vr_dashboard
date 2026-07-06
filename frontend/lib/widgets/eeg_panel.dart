@@ -45,10 +45,7 @@ class _EegPanelState extends State<EegPanel> {
 
     return Container(
       width: _kPanelWidth,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: const Border(left: BorderSide(color: AppColors.border)),
-      ),
+      decoration: BoxDecoration(color: AppColors.surface),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -62,17 +59,16 @@ class _EegPanelState extends State<EegPanel> {
             child: ListView(
               padding: const EdgeInsets.all(12),
               children: [
-                _controlCard(availableChannels),
-                const SizedBox(height: 12),
+                // _controlCard(availableChannels),
                 _AvgSignalCard(
                   snapshots: eeg.snapshots,
                   channels: selectedChannels,
                 ),
-                const SizedBox(height: 12),
-                _BandPowerCard(
-                  snapshots: eeg.snapshots,
-                  channels: selectedChannels,
-                ),
+                // const SizedBox(height: 12),
+                // _BandPowerCard(
+                //   snapshots: eeg.snapshots,
+                //   channels: selectedChannels,
+                // ),
                 const SizedBox(height: 12),
                 _ErdCard(latest: latest, channels: availableChannels),
                 const SizedBox(height: 12),
@@ -85,21 +81,22 @@ class _EegPanelState extends State<EegPanel> {
     );
   }
 
+  // ignore: unused_element
   Widget _controlCard(List<String> channels) {
     return _CardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionLabel('Channel group'),
+          _sectionLabel('Grupa kanałów'),
           const SizedBox(height: 8),
           Wrap(
             spacing: 6,
             runSpacing: 6,
             children: [
-              _scopeChip('All', _ChannelScope.all),
-              _scopeChip('Motor', _ChannelScope.motor),
-              _scopeChip('Posterior', _ChannelScope.posterior),
-              _scopeChip('Single', _ChannelScope.single),
+              _scopeChip('Wszystkie', _ChannelScope.all),
+              _scopeChip('Ruchowe', _ChannelScope.motor),
+              _scopeChip('Tylne', _ChannelScope.posterior),
+              _scopeChip('Pojedynczy', _ChannelScope.single),
             ],
           ),
           if (_scope == _ChannelScope.single) ...[
@@ -107,7 +104,7 @@ class _EegPanelState extends State<EegPanel> {
             Row(
               children: [
                 Text(
-                  'Channel',
+                  'Kanał',
                   style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                 ),
                 const SizedBox(width: 10),
@@ -185,7 +182,7 @@ class _EegPanelState extends State<EegPanel> {
         onExpansionChanged: (value) =>
             setState(() => _rawPreviewExpanded = value),
         title: Text(
-          'Raw Channels',
+          'Surowe kanały',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.bold,
@@ -193,12 +190,12 @@ class _EegPanelState extends State<EegPanel> {
           ),
         ),
         subtitle: Text(
-          'Collapsed by default',
+          'Domyślnie zwinięte',
           style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
         ),
         children: [
           if (latest == null)
-            _placeholder('Waiting for EEG data...')
+            _placeholder('Oczekiwanie na dane EEG...')
           else
             ...selectedChannels.map(
               (channel) => Padding(
@@ -276,7 +273,7 @@ class _Header extends StatelessWidget {
               Icon(Icons.psychology, color: Colors.white, size: 18),
               SizedBox(width: 8),
               Text(
-                'EEG SIGNALS',
+                'SYGNAŁY EEG',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 14,
@@ -290,11 +287,11 @@ class _Header extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: [
-              _pill('EEG: ${eegOn ? 'ON' : 'OFF'}'),
+              _pill('EEG: ${eegOn ? 'WŁ.' : 'WYŁ.'}'),
               _pill('$samplingRate Hz'),
-              _pill('$channelCount ch'),
+              _pill('$channelCount kan.'),
               _pill(
-                'Signal: ${quality.name.toUpperCase()}',
+                'Sygnał: ${_qualityLabel(quality)}',
                 backgroundColor: qualityColor.withValues(alpha: 0.18),
                 borderColor: qualityColor.withValues(alpha: 0.35),
               ),
@@ -327,6 +324,14 @@ class _Header extends StatelessWidget {
       ),
     );
   }
+
+  String _qualityLabel(_SignalQuality quality) {
+    return switch (quality) {
+      _SignalQuality.good => 'DOBRY',
+      _SignalQuality.medium => 'ŚREDNI',
+      _SignalQuality.bad => 'SŁABY',
+    };
+  }
 }
 
 class _AvgSignalCard extends StatelessWidget {
@@ -344,13 +349,13 @@ class _AvgSignalCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _chartHeader(
-            'Avg EEG Signal',
-            subtitle: 'Live window ~1-5 s',
+            'Średni sygnał EEG',
+            subtitle: 'Okno na żywo ~1-5 s',
             unit: 'µV',
           ),
           const SizedBox(height: 8),
           if (series.isEmpty)
-            _placeholder('Waiting for EEG data...')
+            _placeholder('Oczekiwanie na dane EEG...')
           else
             SizedBox(
               height: 150,
@@ -397,6 +402,7 @@ class _AvgSignalCard extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _BandPowerCard extends StatelessWidget {
   final List<EegSnapshot> snapshots;
   final List<String> channels;
@@ -416,12 +422,12 @@ class _BandPowerCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _chartHeader(
-            'Band Power Over Time',
+            'Moc pasm w czasie',
             subtitle: 'Theta, Alpha / Mu, Beta',
           ),
           const SizedBox(height: 8),
           if (!hasData)
-            _placeholder('Waiting for band power data...')
+            _placeholder('Oczekiwanie na dane mocy pasm...')
           else ...[
             _LegendRow(
               items: [
@@ -496,10 +502,10 @@ class _ErdCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _chartHeader('ERD / ERS per Channel', subtitle: 'Alpha / Mu + Beta'),
+          _chartHeader('ERD / ERS na kanał', subtitle: 'Alpha / Mu + Beta'),
           const SizedBox(height: 8),
           if (!hasData)
-            _placeholder('Waiting for ERD data...')
+            _placeholder('Oczekiwanie na dane ERD...')
           else ...[
             _LegendRow(
               items: [
@@ -563,7 +569,7 @@ class _RawChannelChart extends StatelessWidget {
         ),
         child: Center(
           child: Text(
-            '$channel - No data',
+            '$channel - brak danych',
             style: const TextStyle(fontSize: 9, color: Colors.black38),
           ),
         ),
