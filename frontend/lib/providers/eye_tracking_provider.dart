@@ -73,11 +73,6 @@ class EyeTrackingData {
     );
   }
 
-  static double? _optionalDouble(dynamic value) {
-    if (value is num) return value.toDouble();
-    return null;
-  }
-
   static double? _optionalScreenCoord(dynamic value) {
     if (value is! num) return null;
     final coord = value.toDouble();
@@ -119,7 +114,8 @@ class EyeTrackingProvider with ChangeNotifier {
   bool get isReceiving {
     final data = _lastEyeData;
     if (data == null) return false;
-    return DateTime.now().difference(data.timestamp) <= const Duration(seconds: 3);
+    return DateTime.now().difference(data.timestamp) <=
+        const Duration(seconds: 3);
   }
 
   void updateFromJson(Map<String, dynamic> json) {

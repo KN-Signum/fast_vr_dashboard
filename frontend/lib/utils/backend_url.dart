@@ -1,0 +1,22 @@
+String resolveBackendWebSocketUrl(
+  Uri base, {
+  bool useDevelopmentBackend = false,
+}) {
+  if (useDevelopmentBackend) {
+    return 'ws://127.0.0.1:8080/ws?role=dashboard';
+  }
+
+  if (base.scheme != 'http' && base.scheme != 'https') {
+    return 'ws://127.0.0.1:8080/ws?role=dashboard';
+  }
+
+  final host = base.host.isEmpty ? '127.0.0.1' : base.host;
+  final scheme = base.scheme == 'https' ? 'wss' : 'ws';
+  return Uri(
+    scheme: scheme,
+    host: host,
+    port: base.hasPort ? base.port : null,
+    path: '/ws',
+    queryParameters: const {'role': 'dashboard'},
+  ).toString();
+}

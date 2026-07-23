@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/html.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import '../utils/backend_url.dart';
 
 // Callback for eye tracking data
 typedef OnEyeTrackingData = void Function(Map<String, dynamic> data);
@@ -30,21 +31,11 @@ class WebSocketProvider with ChangeNotifier {
   DateTime? get lastEyeTrackingAt => _lastEyeTrackingAt;
   bool get isConnected => _isConnected;
 
-  static String defaultBackendUrl() {
-    final base = Uri.base;
-    if (base.scheme != 'http' && base.scheme != 'https') {
-      return 'ws://127.0.0.1:8080/ws';
-    }
-
-    final host = base.host.isEmpty ? '127.0.0.1' : base.host;
-    final isLocalHost =
-        host == 'localhost' || host == '127.0.0.1' || host == '::1';
-    final scheme = base.scheme == 'https' ? 'wss' : 'ws';
-    final port = isLocalHost && base.hasPort && base.port != 8080
-        ? 8080
-        : (base.hasPort ? base.port : null);
-
-    return Uri(scheme: scheme, host: host, port: port, path: '/ws').toString();
+  static String defaultBackendUrl([Uri? baseUri]) {
+    return resolveBackendWebSocketUrl(
+      baseUri ?? Uri.base,
+      useDevelopmentBackend: kDebugMode,
+    );
   }
 
   /// Register callback for eye tracking data

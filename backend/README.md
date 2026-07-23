@@ -9,6 +9,16 @@ uv run uvicorn main:app --host 0.0.0.0 --port 8080 --reload
 Development mode uses mock EEG and eye-tracking streams by default. The
 dashboard is served from `static/web`.
 
+The served dashboard is generated from the Flutter project. From the repository
+root, refresh it with:
+
+```shell
+uv run --project backend python scripts/build_frontend.py
+```
+
+Do not copy individual Flutter artifacts into `static/web`; the build script
+uses an exact verified mirror so stale files are removed.
+
 ## Runtime configuration
 
 The packaged launcher uses production defaults: real EEG, eye tracking from
