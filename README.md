@@ -94,3 +94,32 @@ uv run --project backend --group package python scripts\smoke_test_package.py
 PyInstaller builds are platform-specific. A macOS build validates packaging
 logic locally but cannot replace the final Windows x64 build or physical
 BrainAccess hardware test.
+
+## Windows client release
+
+The final Windows command builds and tests the frontend and backend, packages
+the server, compiles the installer, creates a portable ZIP, and publishes
+SHA-256 checksums:
+
+```powershell
+.\scripts\build_release.ps1 -ConfirmBrainAccessRedistribution
+```
+
+Install Inno Setup 6.3 or newer on the build machine before running it. The
+command refuses to build from a dirty worktree unless `-AllowDirty` is
+explicitly supplied. The BrainAccess confirmation switch is mandatory because
+redistribution rights must be reviewed outside the codebase.
+
+For Authenticode signing, install the Windows 10 SDK and provide the SHA-1
+certificate thumbprint:
+
+```powershell
+.\scripts\build_release.ps1 `
+  -ConfirmBrainAccessRedistribution `
+  -CertificateThumbprint "CERTIFICATE_SHA1_THUMBPRINT"
+```
+
+Unsigned builds are supported for internal testing but may trigger Microsoft
+Defender SmartScreen. Final artifacts are written below `release\<version>`.
+Follow [WINDOWS_RELEASE_CHECKLIST.md](WINDOWS_RELEASE_CHECKLIST.md) for clean
+machine and hardware acceptance testing.

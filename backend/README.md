@@ -107,3 +107,7 @@ mock-mode health check.
 
 The final client package must be built and tested on Windows x64. PyInstaller
 does not cross-compile Windows executables from macOS or Linux.
+
+The repository-level `scripts/build_release.ps1` command wraps this package in
+an Inno Setup installer, adds the firewall rule required by the VR client,
+produces a portable ZIP, and writes release checksums.
