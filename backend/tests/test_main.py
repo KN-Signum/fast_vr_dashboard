@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from config import AppSettings
+from eeg_service import EegStatus
 from main import create_app
 
 
@@ -36,6 +37,20 @@ def _health_endpoint(app):
     )
 
 
+class FakeEegService:
+    def __init__(self, started: set[str]) -> None:
+        self.status = EegStatus.DISCONNECTED
+        self.error = None
+        self._started = started
+
+    async def start(self, _manager) -> None:
+        self._started.add("eeg")
+        self.status = EegStatus.STREAMING
+
+    async def stop(self) -> None:
+        self.status = EegStatus.DISCONNECTED
+
+
 class AppFactoryTests(unittest.IsolatedAsyncioTestCase):
     async def test_health_reports_runtime_configuration(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -48,7 +63,8 @@ class AppFactoryTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(health["status"], "ok")
             self.assertEqual(health["application"], "panel-vr")
-            self.assertEqual(health["eeg_status"], "disabled")
+            self.assertEqual(health["eeg_device_name"], "BA MINI 037")
+            self.assertEqual(health["eeg_status"], "disconnected")
             self.assertEqual(health["et_status"], "disabled")
             self.assertFalse(health["beacon_running"])
 
@@ -82,16 +98,15 @@ class AppFactoryTests(unittest.IsolatedAsyncioTestCase):
             )
             started: set[str] = set()
 
-            async def eeg_runner(_):
-                started.add("eeg")
-                await asyncio.Event().wait()
-
             async def et_runner(_):
                 started.add("et")
                 await asyncio.Event().wait()
 
             with (
-                patch("main._load_eeg_runner", return_value=eeg_runner),
+                patch(
+                    "main.create_eeg_service",
+                    return_value=FakeEegService(started),
+                ),
                 patch("main._load_et_runner", return_value=et_runner),
             ):
                 app = create_app(settings)
@@ -99,11 +114,14 @@ class AppFactoryTests(unittest.IsolatedAsyncioTestCase):
                     await asyncio.sleep(0)
                     health = await _health_endpoint(app)()
                     self.assertEqual(started, {"eeg", "et"})
-                    self.assertEqual(health["eeg_status"], "running")
+                    self.assertEqual(health["eeg_status"], "streaming")
                     self.assertEqual(health["et_status"], "running")
 
                 self.assertEqual(app.state.runtime.tasks, [])
-                self.assertEqual(app.state.runtime.eeg_status, "stopped")
+                self.assertEqual(
+                    app.state.eeg_service.status,
+                    EegStatus.DISCONNECTED,
+                )
                 self.assertEqual(app.state.runtime.et_status, "stopped")
 
     def test_missing_flutter_build_is_rejected(self) -> None:

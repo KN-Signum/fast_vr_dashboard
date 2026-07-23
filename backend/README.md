@@ -20,6 +20,7 @@ Supported environment variables:
 - `VRDASH_HOST`: server bind address, default `0.0.0.0`
 - `VRDASH_PORT`: HTTP, WebSocket, and advertised port, default `8080`
 - `VRDASH_EEG_MODE`: `real`, `mock`, or `off`
+- `VRDASH_EEG_DEVICE`: BrainAccess Bluetooth name, default `BA MINI 037`
 - `VRDASH_ET_MODE`: `vr`, `mock`, or `off`
 - `VRDASH_BEACON_ENABLED`: boolean
 - `VRDASH_OPEN_BROWSER`: boolean
@@ -43,16 +44,39 @@ Useful development options:
 ```shell
 uv run python launcher.py --mock-eeg --mock-et
 uv run python launcher.py --no-browser
+uv run python launcher.py --eeg-device "BA MINI 037"
 ```
 
 The launcher detects an existing Panel VR instance, reports port conflicts,
 opens the dashboard when the server is ready, and writes rotating logs below
 the application data directory.
 
+## BrainAccess EEG
+
+The real EEG service is loaded lazily and is supported by the vendored SDK on
+Windows x64. A missing sensor or Bluetooth error changes `eeg_status` to
+`error` without stopping the dashboard.
+
+Run the hardware diagnostic on the target Windows computer before packaging:
+
+```shell
+uv run python eeg_diagnostic.py --device "BA MINI 037" --duration 10
+```
+
+The target computer needs the Microsoft Visual C++ x64 runtime required by
+`bacore.dll` and `simpleble.dll`. Confirm that the BrainAccess SDK licence
+permits redistribution of these DLLs before delivering the installer.
+
 ## Tests
 
-Stage-one tests use only the Python standard library:
+Run the backend test suite with:
 
 ```shell
 uv run python -m unittest discover -s tests -v
+```
+
+Install all development and packaging dependencies with:
+
+```shell
+uv sync --all-groups
 ```

@@ -251,6 +251,7 @@ class EEG:
         self.data.convert_to_mne(
             tim=tim,
             samples=samples,
+            annotations=annotations,
             channels_indexes=list(self.channels_indexes.values()),
         )
         return self.data.mne_raw

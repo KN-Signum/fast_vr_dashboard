@@ -88,6 +88,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Panel VR backend launcher")
     parser.add_argument("--port", type=int, help="HTTP and WebSocket port")
     parser.add_argument("--data-dir", type=Path, help="Writable application directory")
+    parser.add_argument("--eeg-device", help="BrainAccess Bluetooth device name")
     parser.add_argument(
         "--mock-eeg",
         action="store_true",
@@ -118,6 +119,11 @@ def run(
             port=args.port if args.port is not None else settings.port,
             data_dir=args.data_dir if args.data_dir is not None else settings.data_dir,
             eeg_mode="mock" if args.mock_eeg else settings.eeg_mode,
+            eeg_device_name=(
+                args.eeg_device
+                if args.eeg_device is not None
+                else settings.eeg_device_name
+            ),
             et_mode="mock" if args.mock_et else settings.et_mode,
             open_browser=False if args.no_browser else settings.open_browser,
         )

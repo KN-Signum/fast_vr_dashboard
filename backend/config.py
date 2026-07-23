@@ -36,6 +36,7 @@ class AppSettings:
     host: str
     port: int
     eeg_mode: str
+    eeg_device_name: str
     et_mode: str
     beacon_enabled: bool
     open_browser: bool
@@ -79,6 +80,9 @@ class AppSettings:
             raise ValueError(
                 f"VRDASH_EEG_MODE must be one of: {', '.join(sorted(_VALID_EEG_MODES))}"
             )
+        eeg_device_name = env.get("VRDASH_EEG_DEVICE", "BA MINI 037").strip()
+        if not eeg_device_name:
+            raise ValueError("VRDASH_EEG_DEVICE cannot be empty")
 
         et_mode = env.get(
             "VRDASH_ET_MODE",
@@ -101,6 +105,7 @@ class AppSettings:
             host=host,
             port=port,
             eeg_mode=eeg_mode,
+            eeg_device_name=eeg_device_name,
             et_mode=et_mode,
             beacon_enabled=_parse_bool(
                 env.get("VRDASH_BEACON_ENABLED"),

@@ -15,6 +15,7 @@ from starlette.middleware.cors import CORSMiddleware
 from beacon_manager import BeaconManager
 from config import AppSettings
 from connection_manager import ConnectionManager
+from eeg_service import create_eeg_service
 from paths import AppPaths
 
 
@@ -24,9 +25,7 @@ StreamRunner = Callable[[ConnectionManager], Awaitable[None]]
 
 @dataclass(slots=True)
 class RuntimeState:
-    eeg_status: str = "disabled"
     et_status: str = "disabled"
-    eeg_error: str | None = None
     et_error: str | None = None
     beacon_running: bool = False
     tasks: list[asyncio.Task] = field(default_factory=list)
@@ -55,20 +54,6 @@ class ResponseHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
         return response
-
-
-def _load_eeg_runner(mode: str) -> StreamRunner | None:
-    if mode == "off":
-        return None
-    if mode == "mock":
-        import eeg_mock
-
-        eeg_mock.eeg_mock_enabled = True
-        return eeg_mock.eeg_mock_task
-
-    from eeg_stream import eeg_stream_task
-
-    return eeg_stream_task
 
 
 def _load_et_runner(mode: str) -> StreamRunner | None:
@@ -129,12 +114,15 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
 
     manager = ConnectionManager()
     runtime = RuntimeState(
-        eeg_status="disabled" if resolved_settings.eeg_mode == "off" else "pending",
         et_status={
             "off": "disabled",
             "vr": "awaiting_vr",
             "mock": "pending",
         }[resolved_settings.et_mode],
+    )
+    eeg_service = create_eeg_service(
+        resolved_settings.eeg_mode,
+        resolved_settings.eeg_device_name,
     )
     beacon = BeaconManager(ws_port=resolved_settings.port)
 
@@ -147,19 +135,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             resolved_settings.et_mode,
         )
 
-        try:
-            eeg_runner = _load_eeg_runner(resolved_settings.eeg_mode)
-            if eeg_runner is not None:
-                _start_stream(
-                    name="eeg",
-                    runner=eeg_runner,
-                    manager=manager,
-                    runtime=runtime,
-                )
-        except Exception as error:
-            runtime.eeg_status = "error"
-            runtime.eeg_error = str(error)
-            logger.exception("Could not initialize the EEG stream")
+        await eeg_service.start(manager)
 
         try:
             et_runner = _load_et_runner(resolved_settings.et_mode)
@@ -190,14 +166,14 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
                 await beacon.stop()
             runtime.beacon_running = False
 
+            await eeg_service.stop()
+
             for task in runtime.tasks:
                 task.cancel()
             if runtime.tasks:
                 await asyncio.gather(*runtime.tasks, return_exceptions=True)
             runtime.tasks.clear()
 
-            if runtime.eeg_status not in {"disabled", "error"}:
-                runtime.eeg_status = "stopped"
             if runtime.et_status not in {"disabled", "awaiting_vr", "error"}:
                 runtime.et_status = "stopped"
 
@@ -210,6 +186,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.state.paths = paths
     app.state.connection_manager = manager
     app.state.runtime = runtime
+    app.state.eeg_service = eeg_service
     app.state.beacon = beacon
 
     app.add_middleware(
@@ -229,8 +206,9 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             "version": resolved_settings.app_version,
             "environment": resolved_settings.environment,
             "eeg_mode": resolved_settings.eeg_mode,
-            "eeg_status": runtime.eeg_status,
-            "eeg_error": runtime.eeg_error,
+            "eeg_device_name": resolved_settings.eeg_device_name,
+            "eeg_status": eeg_service.status.value,
+            "eeg_error": eeg_service.error,
             "et_mode": resolved_settings.et_mode,
             "et_status": runtime.et_status,
             "et_error": runtime.et_error,

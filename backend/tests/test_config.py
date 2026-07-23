@@ -12,6 +12,7 @@ class AppSettingsTests(unittest.TestCase):
 
         self.assertEqual(settings.environment, "development")
         self.assertEqual(settings.eeg_mode, "mock")
+        self.assertEqual(settings.eeg_device_name, "BA MINI 037")
         self.assertEqual(settings.et_mode, "mock")
         self.assertFalse(settings.open_browser)
 
@@ -33,6 +34,7 @@ class AppSettingsTests(unittest.TestCase):
                 "VRDASH_HOST": "127.0.0.1",
                 "VRDASH_PORT": "9000",
                 "VRDASH_EEG_MODE": "off",
+                "VRDASH_EEG_DEVICE": "BA MINI TEST",
                 "VRDASH_ET_MODE": "vr",
                 "VRDASH_BEACON_ENABLED": "false",
                 "VRDASH_OPEN_BROWSER": "yes",
@@ -46,6 +48,7 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual(settings.host, "127.0.0.1")
         self.assertEqual(settings.port, 9000)
         self.assertEqual(settings.eeg_mode, "off")
+        self.assertEqual(settings.eeg_device_name, "BA MINI TEST")
         self.assertEqual(settings.et_mode, "vr")
         self.assertFalse(settings.beacon_enabled)
         self.assertTrue(settings.open_browser)
@@ -59,6 +62,7 @@ class AppSettingsTests(unittest.TestCase):
             {"VRDASH_PORT": "invalid"},
             {"VRDASH_PORT": "70000"},
             {"VRDASH_EEG_MODE": "sometimes"},
+            {"VRDASH_EEG_DEVICE": "  "},
             {"VRDASH_ET_MODE": "sensor"},
             {"VRDASH_BEACON_ENABLED": "maybe"},
         ]

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import asyncio
 import math
-import traceback
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -14,9 +12,6 @@ SAMPLING_RATE = 250
 WINDOW_SECONDS = 1.0
 TICK_SECONDS = 0.1
 
-eeg_mock_enabled = True
-
-
 @dataclass(slots=True)
 class MockBandState:
     baseline: dict[str, np.ndarray] = field(default_factory=dict)
@@ -24,6 +19,11 @@ class MockBandState:
 
 
 _state = MockBandState()
+
+
+def reset_mock_state() -> None:
+    global _state
+    _state = MockBandState()
 
 
 def _band_ranges() -> dict[str, tuple[float, float]]:
@@ -110,38 +110,12 @@ def build_mock_eeg_payload() -> dict:
     return EegPayload(
         sampling_rate=SAMPLING_RATE,
         channels=CHANNELS,
-        raw_signal={channel: waveforms[index, :].tolist() for index, channel in enumerate(CHANNELS)},
+        raw_signal={
+            channel: waveforms[index, :].tolist()
+            for index, channel in enumerate(CHANNELS)
+        },
         data_uv=waveforms[:, -1].tolist(),
         band_power=band_power,
         erd=erd,
         focus_index=focus_index,
     ).to_dict()
-
-
-async def eeg_mock_task(manager) -> None:
-    global eeg_mock_enabled
-
-    print("🧪 EEG mock stream started (10 Hz)...")
-
-    try:
-        tick = 0
-        while eeg_mock_enabled:
-            payload = build_mock_eeg_payload()
-            tick += 1
-            # if tick % 10 == 0:
-            #     print(
-            #         "🧪 EEG mock payload: "
-            #         f"channels={payload['channels']} "
-            #         f"focus={payload['focus_index']:.3f} "
-            #         f"alpha0={payload['band_power']['alpha'][0]:.2f}"
-            #     )
-            await manager.broadcast_json(payload)
-            await asyncio.sleep(TICK_SECONDS)
-    except asyncio.CancelledError:
-        pass
-    except Exception as exc:
-        print(f"❌ EEG mock stream error: {exc}")
-        print(traceback.format_exc())
-    finally:
-        eeg_mock_enabled = False
-        print("🧪 EEG mock stream stopped")
