@@ -1,6 +1,7 @@
-import platform
 import ctypes
+import os
 import pathlib
+import platform
 
 from ctypes.util import find_library
 from os import getcwd
@@ -10,6 +11,20 @@ from shutil import which
 from brainaccess.utils.exceptions import BrainAccessException
 
 _lib_directory = pathlib.Path(__file__).parent / "lib"
+_dll_directory_handle = None
+
+
+def _configure_windows_dll_search_path() -> None:
+    global _dll_directory_handle
+    if (
+        platform.system() == "Windows"
+        and hasattr(os, "add_dll_directory")
+        and _dll_directory_handle is None
+    ):
+        _dll_directory_handle = os.add_dll_directory(str(_lib_directory))
+
+
+_configure_windows_dll_search_path()
 
 
 def get_lib_name(name: str) -> str:

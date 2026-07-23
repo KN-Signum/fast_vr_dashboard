@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from logging.handlers import RotatingFileHandler
 
 from paths import AppPaths
@@ -25,11 +26,6 @@ def configure_logging(paths: AppPaths, level: str) -> None:
         datefmt="%Y-%m-%dT%H:%M:%S",
     )
 
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(numeric_level)
-    console_handler.setFormatter(formatter)
-    setattr(console_handler, _HANDLER_MARKER, True)
-
     file_handler = RotatingFileHandler(
         paths.log_dir / "panel-vr.log",
         maxBytes=5 * 1024 * 1024,
@@ -40,6 +36,11 @@ def configure_logging(paths: AppPaths, level: str) -> None:
     file_handler.setFormatter(formatter)
     setattr(file_handler, _HANDLER_MARKER, True)
 
-    root_logger.addHandler(console_handler)
+    if sys.stderr is not None:
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(numeric_level)
+        console_handler.setFormatter(formatter)
+        setattr(console_handler, _HANDLER_MARKER, True)
+        root_logger.addHandler(console_handler)
     root_logger.addHandler(file_handler)
     logging.captureWarnings(True)

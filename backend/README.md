@@ -90,3 +90,20 @@ Install all development and packaging dependencies with:
 ```shell
 uv sync --all-groups
 ```
+
+## PyInstaller package
+
+From the repository root, build the one-directory backend package with:
+
+```shell
+uv run --project backend --group package python scripts/build_backend.py
+```
+
+The specification is `panel_vr.spec`. It includes the compiled Flutter
+dashboard, MNE's lazy-loaded modules, and the BrainAccess DLL directory. The
+build is rejected if the embedded frontend differs from `static/web`, native
+DLLs are absent, package hashes differ, or the frozen server does not pass its
+mock-mode health check.
+
+The final client package must be built and tested on Windows x64. PyInstaller
+does not cross-compile Windows executables from macOS or Linux.

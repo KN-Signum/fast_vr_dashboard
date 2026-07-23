@@ -64,7 +64,8 @@ def _show_error(title: str, message: str) -> None:
             return
         except Exception:
             logger.exception("Could not display the Windows error dialog")
-    print(f"{title}: {message}", file=sys.stderr)
+    if sys.stderr is not None:
+        print(f"{title}: {message}", file=sys.stderr)
 
 
 def _open_browser_when_ready(

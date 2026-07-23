@@ -29,7 +29,8 @@ The release version is stored in `VERSION`. The same version must be present in
 `frontend/pubspec.yaml` and `backend/pyproject.toml`; the verifier rejects a
 mismatch.
 
-On Windows, run the complete frontend gate and backend tests:
+On Windows, run the frontend gate, backend tests, PyInstaller build, package
+verification, and packaged-server smoke test:
 
 ```powershell
 .\scripts\build_all.ps1
@@ -66,3 +67,30 @@ The verifier requires the two bundles to have identical file lists and SHA-256
 hashes, and checks the Flutter and build metadata versions. Generated files
 under `backend/static/web` remain tracked for now and must only be refreshed
 through this pipeline.
+
+## Backend package
+
+Build only the backend package on Windows:
+
+```powershell
+.\scripts\build_backend.ps1
+```
+
+The output is a one-directory package under `dist\PanelVR`. It contains the
+`PanelVR.exe` launcher, the Flutter bundle, Python runtime dependencies, and the
+BrainAccess native DLLs. Keep this directory intact; the executable is not
+standalone outside it.
+
+The package build writes `package-manifest.json` with release metadata and the
+SHA-256 hash of every packaged file. It then starts the frozen application with
+mock EEG and eye tracking, checks `/api/health`, and verifies that Flutter is
+served. File verification and the smoke test can also be run independently:
+
+```powershell
+uv run --project backend --group package python scripts\verify_backend_package.py
+uv run --project backend --group package python scripts\smoke_test_package.py
+```
+
+PyInstaller builds are platform-specific. A macOS build validates packaging
+logic locally but cannot replace the final Windows x64 build or physical
+BrainAccess hardware test.

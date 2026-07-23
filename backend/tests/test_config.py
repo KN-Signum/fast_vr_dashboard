@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from config import AppSettings
 
@@ -26,6 +27,12 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual(settings.eeg_mode, "real")
         self.assertEqual(settings.et_mode, "vr")
         self.assertTrue(settings.open_browser)
+
+    def test_default_version_comes_from_bundled_build_metadata(self) -> None:
+        with patch("config._bundled_app_version", return_value="2.3.4"):
+            settings = AppSettings.from_env(environ={})
+
+        self.assertEqual(settings.app_version, "2.3.4")
 
     def test_environment_overrides_are_parsed(self) -> None:
         settings = AppSettings.from_env(

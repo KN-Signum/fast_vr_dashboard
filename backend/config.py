@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +11,20 @@ _VALID_ENVIRONMENTS = {"development", "production", "test"}
 _VALID_EEG_MODES = {"real", "mock", "off"}
 _VALID_ET_MODES = {"vr", "mock", "off"}
 _VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+
+
+def _bundled_app_version() -> str:
+    build_info = (
+        Path(__file__).resolve().parent / "static" / "web" / "build-info.json"
+    )
+    try:
+        payload = json.loads(build_info.read_text(encoding="utf-8"))
+        version = payload.get("app_version") if isinstance(payload, dict) else None
+        if isinstance(version, str) and version.strip():
+            return version.strip()
+    except (OSError, ValueError):
+        pass
+    return "0.0.0-dev"
 
 
 def _parse_bool(value: str | None, default: bool) -> bool:
@@ -99,6 +114,7 @@ class AppSettings:
                 "VRDASH_LOG_LEVEL must be one of: "
                 f"{', '.join(sorted(_VALID_LOG_LEVELS))}"
             )
+        default_app_version = _bundled_app_version()
 
         return cls(
             environment=environment,
@@ -118,5 +134,6 @@ class AppSettings:
             data_dir=_optional_path(env.get("VRDASH_DATA_DIR")),
             static_dir=_optional_path(env.get("VRDASH_STATIC_DIR")),
             log_level=log_level,
-            app_version=env.get("VRDASH_VERSION", "0.1.0").strip() or "0.1.0",
+            app_version=env.get("VRDASH_VERSION", default_app_version).strip()
+            or default_app_version,
         )
