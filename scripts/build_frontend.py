@@ -33,9 +33,11 @@ def run(command: list[str], *, cwd: Path) -> None:
     subprocess.run(command, cwd=cwd, check=True)
 
 
-def require_command(command: str) -> None:
-    if shutil.which(command) is None:
+def require_command(command: str) -> str:
+    resolved = shutil.which(command)
+    if resolved is None:
         raise RuntimeError(f"Required command is not available on PATH: {command}")
+    return resolved
 
 
 def git_output(*arguments: str) -> str:
@@ -110,16 +112,16 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        require_command("flutter")
-        require_command("dart")
+        flutter = require_command("flutter")
+        dart = require_command("dart")
         require_command("git")
         version, build_number = verify_source_versions(ROOT)
 
-        run(["flutter", "pub", "get"], cwd=FRONTEND)
+        run([flutter, "pub", "get"], cwd=FRONTEND)
         if not args.skip_checks:
             run(
                 [
-                    "dart",
+                    dart,
                     "format",
                     "--output=none",
                     "--set-exit-if-changed",
@@ -128,10 +130,10 @@ def main() -> int:
                 ],
                 cwd=FRONTEND,
             )
-            run(["flutter", "analyze"], cwd=FRONTEND)
-            run(["flutter", "test"], cwd=FRONTEND)
+            run([flutter, "analyze"], cwd=FRONTEND)
+            run([flutter, "test"], cwd=FRONTEND)
 
-        run(["flutter", "build", "web", "--release"], cwd=FRONTEND)
+        run([flutter, "build", "web", "--release"], cwd=FRONTEND)
         write_build_info(version, build_number)
         verify_build_directory(
             BUILD_DIRECTORY,
