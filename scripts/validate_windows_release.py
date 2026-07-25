@@ -18,7 +18,9 @@ CLIENT_README = ROOT / "installer" / "README_PL.txt"
 BUILD_INFO = ROOT / "backend" / "static" / "web" / "build-info.json"
 BRAINACCESS_LIB = ROOT / "backend" / "brainaccess" / "lib"
 REQUIRED_DLLS = ("babciconnect.dll", "bacore.dll", "simpleble.dll")
+PE_MACHINE_I386 = 0x014C
 PE_MACHINE_AMD64 = 0x8664
+PE32_MAGIC = 0x10B
 PE32_PLUS_MAGIC = 0x20B
 
 
@@ -58,6 +60,19 @@ def require_x64_pe(path: Path) -> None:
     if machine != PE_MACHINE_AMD64 or optional_magic != PE32_PLUS_MAGIC:
         raise WindowsReleaseValidationError(
             f"{path} is not a Windows x64 PE32+ binary "
+            f"(machine=0x{machine:04x}, magic=0x{optional_magic:04x})"
+        )
+
+
+def require_windows_pe(path: Path) -> None:
+    machine, optional_magic = pe_headers(path)
+    valid_headers = {
+        (PE_MACHINE_I386, PE32_MAGIC),
+        (PE_MACHINE_AMD64, PE32_PLUS_MAGIC),
+    }
+    if (machine, optional_magic) not in valid_headers:
+        raise WindowsReleaseValidationError(
+            f"{path} is not a supported Windows executable "
             f"(machine=0x{machine:04x}, magic=0x{optional_magic:04x})"
         )
 

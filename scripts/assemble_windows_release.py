@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from validate_windows_release import require_x64_pe
+from validate_windows_release import require_windows_pe, require_x64_pe
 from verify_backend_package import (
     DEFAULT_PACKAGE,
     MANIFEST_NAME,
@@ -105,7 +105,9 @@ def assemble_release(
     verify_backend_package(package_dir)
     executable = package_dir / "PanelVR.exe"
     require_x64_pe(executable)
-    require_x64_pe(installer)
+    # Inno Setup 6 uses a PE32 bootstrapper while enforcing x64 installation
+    # through ArchitecturesAllowed and ArchitecturesInstallIn64BitMode.
+    require_windows_pe(installer)
 
     package_manifest = read_json(package_dir / MANIFEST_NAME)
     if package_manifest.get("platform") != "Windows":
