@@ -10,16 +10,21 @@ from paths import AppPaths
 _HANDLER_MARKER = "_panel_vr_handler"
 
 
+def shutdown_logging() -> None:
+    root_logger = logging.getLogger()
+    for handler in list(root_logger.handlers):
+        if getattr(handler, _HANDLER_MARKER, False):
+            root_logger.removeHandler(handler)
+            handler.close()
+    logging.captureWarnings(False)
+
+
 def configure_logging(paths: AppPaths, level: str) -> None:
     paths.ensure_writable_directories()
     root_logger = logging.getLogger()
     numeric_level = getattr(logging, level.upper())
     root_logger.setLevel(numeric_level)
-
-    for handler in list(root_logger.handlers):
-        if getattr(handler, _HANDLER_MARKER, False):
-            root_logger.removeHandler(handler)
-            handler.close()
+    shutdown_logging()
 
     formatter = logging.Formatter(
         "%(asctime)s %(levelname)s %(name)s: %(message)s",

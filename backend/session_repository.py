@@ -6,9 +6,10 @@ import sqlite3
 import tempfile
 import uuid
 import zipfile
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator
 
 
 STREAM_FILES = {
@@ -552,7 +553,8 @@ class SessionRepository:
         with path.open("rb") as source:
             return sum(1 for line in source if line.strip())
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         connection = sqlite3.connect(
             self.database_path,
             timeout=30,
@@ -562,4 +564,8 @@ class SessionRepository:
         connection.execute("PRAGMA journal_mode=WAL")
         connection.execute("PRAGMA foreign_keys=ON")
         connection.execute("PRAGMA synchronous=NORMAL")
-        return connection
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
