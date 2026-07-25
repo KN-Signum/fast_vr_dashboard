@@ -131,15 +131,15 @@ jobs:
       - name: Build and verify release
         shell: pwsh
         run: |
-          $arguments = @("-ConfirmBrainAccessRedistribution")
+          $releaseArguments = @{
+            ConfirmBrainAccessRedistribution = $true
+          }
           if ("${{ steps.signing.outputs.enabled }}" -eq "true") {
-            $arguments += @(
-              "-CertificateThumbprint",
+            $releaseArguments.CertificateThumbprint =
               "${{ steps.signing.outputs.thumbprint }}"
-            )
           }
 
-          & .\scripts\build_release.ps1 @arguments
+          & .\scripts\build_release.ps1 @releaseArguments
           if ($LASTEXITCODE -ne 0) {
             throw "Windows release build failed with exit code $LASTEXITCODE."
           }
