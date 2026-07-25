@@ -328,9 +328,11 @@ class _EventComposer extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     onPressed: () {
-                      context.read<SessionProvider>().addClinicianEvent(
-                        label: event.label,
-                        category: event.category,
+                      unawaited(
+                        context.read<SessionProvider>().addClinicianEvent(
+                          label: event.label,
+                          category: event.category,
+                        ),
                       );
                     },
                   );
@@ -385,9 +387,11 @@ class _EventComposer extends StatelessWidget {
     final label = controller.text.trim();
     if (label.isEmpty) return;
 
-    context.read<SessionProvider>().addClinicianEvent(
-      label: label,
-      category: 'custom',
+    unawaited(
+      context.read<SessionProvider>().addClinicianEvent(
+        label: label,
+        category: 'custom',
+      ),
     );
     controller.clear();
   }

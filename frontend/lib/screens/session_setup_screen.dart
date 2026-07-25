@@ -51,7 +51,7 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
     final ws = context.watch<WebSocketProvider>();
     final eeg = context.watch<EegProvider>();
     final eyeTracking = context.watch<EyeTrackingProvider>();
-    final session = context.read<SessionProvider>();
+    final session = context.watch<SessionProvider>();
     final patientId = _patientIdController.text.trim();
 
     return Scaffold(
@@ -85,14 +85,15 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
                         patientIdController: _patientIdController,
                         notesController: _notesController,
                         preferredHand: _preferredHand,
+                        errorMessage: session.errorMessage,
                         onPreferredHandChanged: (value) {
                           if (value == null) return;
                           setState(() => _preferredHand = value);
                         },
-                        onCreate: patientId.isEmpty
+                        onCreate: patientId.isEmpty || session.isBusy
                             ? null
-                            : () {
-                                session.createSession(
+                            : () async {
+                                await session.createSession(
                                   patientId: patientId,
                                   preferredHand: _preferredHand,
                                   notes: _notesController.text,
@@ -145,6 +146,7 @@ class _SessionFormCard extends StatelessWidget {
   final TextEditingController patientIdController;
   final TextEditingController notesController;
   final String preferredHand;
+  final String? errorMessage;
   final ValueChanged<String?> onPreferredHandChanged;
   final VoidCallback? onCreate;
 
@@ -152,6 +154,7 @@ class _SessionFormCard extends StatelessWidget {
     required this.patientIdController,
     required this.notesController,
     required this.preferredHand,
+    required this.errorMessage,
     required this.onPreferredHandChanged,
     required this.onCreate,
   });
@@ -225,6 +228,16 @@ class _SessionFormCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
           ),
+          if (errorMessage != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              errorMessage!,
+              style: const TextStyle(
+                color: AppColors.danger,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import socket
@@ -13,6 +14,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+import zipfile
 from pathlib import Path
 
 from verify_backend_package import DEFAULT_PACKAGE, find_executable
@@ -27,6 +29,20 @@ def available_port() -> int:
 
 def get_json(url: str, *, timeout: float = 1.0) -> dict:
     with urllib.request.urlopen(url, timeout=timeout) as response:
+        value = json.load(response)
+    if not isinstance(value, dict):
+        raise RuntimeError(f"Expected a JSON object from {url}")
+    return value
+
+
+def post_json(url: str, payload: dict, *, timeout: float = 2.0) -> dict:
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
         value = json.load(response)
     if not isinstance(value, dict):
         raise RuntimeError(f"Expected a JSON object from {url}")
@@ -93,6 +109,47 @@ def smoke_test(package_dir: Path, *, timeout: float = 45.0) -> None:
                 index = response.read()
             if b"flutter_bootstrap.js" not in index:
                 raise RuntimeError("Packaged server did not serve the Flutter index")
+
+            api_base = f"http://127.0.0.1:{port}/api/sessions"
+            session = post_json(
+                api_base,
+                {
+                    "patient_id": "package-smoke-test",
+                    "preferred_hand": "not_specified",
+                    "notes": "Automated package verification",
+                },
+            )
+            session_id = session.get("session_id")
+            if not isinstance(session_id, str) or not session_id:
+                raise RuntimeError(f"Invalid created session: {session}")
+
+            ended = post_json(f"{api_base}/{session_id}/end", {})
+            if ended.get("status") != "completed":
+                raise RuntimeError(f"Packaged session did not end: {ended}")
+
+            summary = get_json(f"{api_base}/{session_id}/download/summary")
+            if summary.get("session_id") != session_id:
+                raise RuntimeError(f"Invalid packaged session summary: {summary}")
+
+            with urllib.request.urlopen(
+                f"{api_base}/{session_id}/download/raw",
+                timeout=5.0,
+            ) as response:
+                archive_bytes = response.read()
+            with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
+                expected_files = {
+                    "summary_report.json",
+                    "eeg.ndjson",
+                    "eye_tracking.ndjson",
+                    "vr_events.ndjson",
+                    "vr_frames.ndjson",
+                    "session_events.ndjson",
+                }
+                if set(archive.namelist()) != expected_files:
+                    raise RuntimeError(
+                        "Packaged session archive has unexpected files: "
+                        f"{archive.namelist()}"
+                    )
         except Exception:
             process.terminate()
             output, _ = process.communicate(timeout=10)

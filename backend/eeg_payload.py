@@ -15,6 +15,9 @@ class EegPayload:
     band_power: dict[str, list[float]] = field(default_factory=dict)
     erd: dict[str, list[float]] = field(default_factory=dict)
     focus_index: float = 0.0
+    sequence: int = 0
+    sample_start: int = 0
+    sample_count: int = 0
     timestamp_ms: int = field(default_factory=lambda: int(time() * 1000))
 
     def to_dict(self) -> dict[str, Any]:

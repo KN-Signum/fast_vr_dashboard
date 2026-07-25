@@ -10,12 +10,13 @@ from eeg_payload import EegPayload
 CHANNELS = ["F3", "F4", "C3", "C4", "P3", "P4", "O1", "O2"]
 SAMPLING_RATE = 250
 WINDOW_SECONDS = 1.0
-TICK_SECONDS = 0.1
+TICK_SECONDS = 1.0
 
 @dataclass(slots=True)
 class MockBandState:
     baseline: dict[str, np.ndarray] = field(default_factory=dict)
     sample_cursor: int = 0
+    sequence: int = 0
 
 
 _state = MockBandState()
@@ -99,7 +100,10 @@ def _update_baseline(band_power: dict[str, list[float]]) -> dict[str, list[float
 
 
 def build_mock_eeg_payload() -> dict:
+    sample_start = _state.sample_cursor
+    sequence = _state.sequence
     waveforms = _generate_waveforms()
+    _state.sequence += 1
     band_power = _band_power_from_waveforms(waveforms)
     erd = _update_baseline(band_power)
 
@@ -118,4 +122,7 @@ def build_mock_eeg_payload() -> dict:
         band_power=band_power,
         erd=erd,
         focus_index=focus_index,
+        sequence=sequence,
+        sample_start=sample_start,
+        sample_count=waveforms.shape[1],
     ).to_dict()

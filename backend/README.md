@@ -41,6 +41,57 @@ Supported environment variables:
 
 The runtime health endpoint is available at `GET /api/health`.
 
+## Session storage and API
+
+The backend owns the session lifecycle and recording buffers. Only one session
+can be active at a time. Incoming messages are assigned by WebSocket role:
+
+- `role=dashboard` identifies dashboard control messages, which are relayed but
+  are not stored as VR events.
+- `role=vr` identifies VR-origin JSON and binary frame messages.
+- Backend-generated `eeg_data` and `eye_tracking` messages are recorded before
+  they are broadcast.
+
+Records pass through a bounded asynchronous queue and are written in batches,
+so WebSocket broadcasts do not wait for disk I/O. A full queue is reported as
+`dropped_records` and through `session_recording_error` in `/api/health`.
+
+The data directory contains:
+
+```text
+sessions.sqlite3
+sessions/<session_id>/session.json
+sessions/<session_id>/eeg.ndjson
+sessions/<session_id>/eye_tracking.ndjson
+sessions/<session_id>/vr_events.ndjson
+sessions/<session_id>/vr_frames.ndjson
+sessions/<session_id>/session_events.ndjson
+exports/
+```
+
+On Windows the default root is
+`%LOCALAPPDATA%\NEXT\PanelVR`. Set `VRDASH_DATA_DIR` to override it. This
+directory contains client session data and must be included in backup and
+retention procedures.
+
+Session endpoints:
+
+- `POST /api/sessions`
+- `GET /api/sessions/active`
+- `GET /api/sessions/recovered`
+- `GET /api/sessions/{session_id}/summary`
+- `POST /api/sessions/{session_id}/events`
+- `POST /api/sessions/{session_id}/end`
+- `GET /api/sessions/{session_id}/download/summary`
+- `GET /api/sessions/{session_id}/download/raw`
+
+The raw endpoint returns a temporary ZIP with the summary and NDJSON streams.
+An active session is flushed before either download endpoint responds. On
+graceful shutdown, or after recovery from an unexpected stop, an unfinished
+session is finalized with status `interrupted`. Recovery recounts the raw
+stream files so the summary remains accurate if shutdown occurred between a
+file append and its SQLite counter update.
+
 ## Launcher
 
 Run the production-style launcher from this directory:

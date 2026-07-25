@@ -48,6 +48,8 @@ class AppPaths:
     data_dir: Path
     log_dir: Path
     session_dir: Path
+    session_database: Path
+    export_dir: Path
 
     @classmethod
     def from_settings(cls, settings: AppSettings) -> AppPaths:
@@ -68,8 +70,11 @@ class AppPaths:
             data_dir=data,
             log_dir=data / "logs",
             session_dir=data / "sessions",
+            session_database=data / "sessions.sqlite3",
+            export_dir=data / "exports",
         )
 
     def ensure_writable_directories(self) -> None:
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.session_dir.mkdir(parents=True, exist_ok=True)
+        self.export_dir.mkdir(parents=True, exist_ok=True)

@@ -20,3 +20,16 @@ String resolveBackendWebSocketUrl(
     queryParameters: const {'role': 'dashboard'},
   ).toString();
 }
+
+Uri resolveBackendHttpBase(Uri base, {bool useDevelopmentBackend = false}) {
+  if (useDevelopmentBackend ||
+      (base.scheme != 'http' && base.scheme != 'https')) {
+    return Uri.parse('http://127.0.0.1:8080');
+  }
+
+  return Uri(
+    scheme: base.scheme,
+    host: base.host.isEmpty ? '127.0.0.1' : base.host,
+    port: base.hasPort ? base.port : null,
+  );
+}

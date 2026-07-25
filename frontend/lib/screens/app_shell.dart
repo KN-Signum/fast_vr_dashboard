@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -35,23 +34,19 @@ class _AppShellState extends State<AppShell> {
 
     wsProvider.setEyeTrackingCallback((data) {
       eyeTrackingProvider.updateFromJson(data);
-      sessionProvider.recordEyeTracking(data);
     });
 
     wsProvider.setEegCallback((data) {
       eegProvider.updateFromJson(data);
-      sessionProvider.recordEeg(data);
     });
 
     _subscription = wsProvider.stream.listen((message) {
       if (message is String) {
         gameProvider.handleMessage(message);
-        sessionProvider.recordVrJsonMessage(message);
-      } else if (message is Uint8List) {
-        sessionProvider.recordVrFrame(message.lengthInBytes);
       }
     });
 
+    unawaited(sessionProvider.restoreActiveSession());
     wsProvider.connect(WebSocketProvider.defaultBackendUrl());
   }
 
@@ -66,9 +61,19 @@ class _AppShellState extends State<AppShell> {
     final stage = context.watch<SessionProvider>().stage;
 
     return switch (stage) {
+      SessionStage.loading => const _SessionLoadingScreen(),
       SessionStage.setup => const SessionSetupScreen(),
       SessionStage.active => const HomeScreen(),
       SessionStage.summary => const SessionSummaryScreen(),
     };
+  }
+}
+
+class _SessionLoadingScreen extends StatelessWidget {
+  const _SessionLoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }

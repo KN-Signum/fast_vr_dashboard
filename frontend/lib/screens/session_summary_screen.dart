@@ -1,9 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:web/web.dart' as web;
-import 'dart:js_interop';
 
 import '../providers/session_provider.dart';
 import '../theme/app_style.dart' hide MetricTile;
@@ -34,7 +31,13 @@ class SessionSummaryScreen extends StatelessWidget {
                     children: [
                       Expanded(child: _MetadataCard(session: session)),
                       const SizedBox(width: AppSpacing.lg),
-                      Expanded(child: _CountsCard(counts: counts)),
+                      Expanded(
+                        child: _CountsCard(
+                          counts: counts,
+                          droppedRecords:
+                              report['dropped_records'] as int? ?? 0,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -61,7 +64,9 @@ class _SummaryHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppHeader(
-      title: 'Podsumowanie sesji',
+      title: session.status == 'interrupted'
+          ? 'Odzyskana przerwana sesja'
+          : 'Podsumowanie sesji',
       subtitle: session.sessionId ?? 'Brak sesji',
       trailing: OutlinedButton.icon(
         onPressed: session.startNewSession,
@@ -119,8 +124,9 @@ class _MetadataCard extends StatelessWidget {
 
 class _CountsCard extends StatelessWidget {
   final Map<String, dynamic> counts;
+  final int droppedRecords;
 
-  const _CountsCard({required this.counts});
+  const _CountsCard({required this.counts, required this.droppedRecords});
 
   @override
   Widget build(BuildContext context) {
@@ -153,6 +159,12 @@ class _CountsCard extends StatelessWidget {
           value: counts['session_events'] as int? ?? 0,
           color: AppColors.warning,
         ),
+        if (droppedRecords > 0)
+          _MetricTile(
+            label: 'Utracone rekordy',
+            value: droppedRecords,
+            color: AppColors.danger,
+          ),
       ],
     );
   }
@@ -166,6 +178,8 @@ class _DownloadCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sessionId = session.sessionId ?? 'session';
+    final summaryUri = session.summaryDownloadUri;
+    final rawUri = session.rawDownloadUri;
 
     return _SummaryCard(
       title: 'Pobieranie',
@@ -175,10 +189,12 @@ class _DownloadCard extends StatelessWidget {
           children: [
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: () => _downloadJson(
-                  filename: 'summary_report_$sessionId.json',
-                  data: session.summaryReport(),
-                ),
+                onPressed: summaryUri == null
+                    ? null
+                    : () => _download(
+                        summaryUri,
+                        'summary_report_$sessionId.json',
+                      ),
                 icon: const Icon(Icons.description),
                 label: const Text('Pobierz raport'),
               ),
@@ -186,10 +202,9 @@ class _DownloadCard extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: () => _downloadJson(
-                  filename: 'raw_data_$sessionId.json',
-                  data: session.rawData(),
-                ),
+                onPressed: rawUri == null
+                    ? null
+                    : () => _download(rawUri, 'raw_data_$sessionId.zip'),
                 icon: const Icon(Icons.data_object),
                 label: const Text('Pobierz dane surowe'),
               ),
@@ -200,19 +215,11 @@ class _DownloadCard extends StatelessWidget {
     );
   }
 
-  void _downloadJson({
-    required String filename,
-    required Map<String, dynamic> data,
-  }) {
-    final contents = const JsonEncoder.withIndent('  ').convert(data);
-    final blob = web.Blob([contents.toJS].toJS);
-    final url = web.URL.createObjectURL(blob);
+  void _download(Uri uri, String filename) {
     final anchor = web.document.createElement('a') as web.HTMLAnchorElement;
-
-    anchor.href = url;
+    anchor.href = uri.toString();
     anchor.download = filename;
     anchor.click();
-    web.URL.revokeObjectURL(url);
   }
 }
 

@@ -15,6 +15,7 @@ CHANNELS = ["Fp1", "Fp2", "O1", "O2"]
 CHANNEL_MAP = {0: "Fp1", 1: "Fp2", 2: "O1", 3: "O2"}
 SAMPLING_RATE = 250
 WINDOW_SECONDS = 1
+TICK_SECONDS = 1.0
 
 
 def _to_uv(data: np.ndarray) -> np.ndarray:
@@ -36,9 +37,13 @@ class BrainAccessStream:
         self._eeg: acquisition.EEG | None = None
         self._manager_destroyed = False
         self._core_initialized = False
+        self._sequence = 0
+        self._sample_cursor = 0
 
     def start(self) -> None:
         self._manager_destroyed = False
+        self._sequence = 0
+        self._sample_cursor = 0
         try:
             self._eeg = acquisition.EEG(mode="roll")
             self._core_initialized = True
@@ -65,7 +70,8 @@ class BrainAccessStream:
         if eeg_uv.shape[1] == 0:
             raise RuntimeError("BrainAccess EEG stream returned no samples")
 
-        return EegPayload(
+        sample_count = eeg_uv.shape[1]
+        payload = EegPayload(
             sampling_rate=SAMPLING_RATE,
             channels=CHANNELS,
             raw_signal={
@@ -74,7 +80,13 @@ class BrainAccessStream:
             },
             data_uv=eeg_uv[:, -1].tolist(),
             band_power=_compute_simple_features(eeg_uv),
+            sequence=self._sequence,
+            sample_start=self._sample_cursor,
+            sample_count=sample_count,
         ).to_dict()
+        self._sequence += 1
+        self._sample_cursor += sample_count
+        return payload
 
     def close(self) -> None:
         eeg = self._eeg

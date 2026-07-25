@@ -149,6 +149,19 @@ class Viewer extends StatelessWidget {
   // Eye Tracking Toggle Button
   Widget _buildEyeTrackingToggle(BuildContext context) {
     final eyeTrackingProvider = context.watch<EyeTrackingProvider>();
+    final isEnabled = eyeTrackingProvider.isEnabled;
+    final isReceiving = eyeTrackingProvider.isReceiving;
+    final statusColor = !isEnabled
+        ? Colors.white
+        : isReceiving
+        ? AppColors.success
+        : AppColors.warning;
+    final foregroundColor = isEnabled ? Colors.white : AppColors.muted;
+    final label = !isEnabled
+        ? 'ET: WYŁ.'
+        : isReceiving
+        ? 'ET: AKTYWNE'
+        : 'ET: BRAK DANYCH';
 
     return Material(
       color: Colors.transparent,
@@ -160,34 +173,26 @@ class Viewer extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: eyeTrackingProvider.isEnabled
-                ? AppColors.danger.withValues(alpha: 0.92)
+            color: isEnabled
+                ? statusColor.withValues(alpha: 0.94)
                 : Colors.white.withValues(alpha: 0.92),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: eyeTrackingProvider.isEnabled
-                  ? AppColors.danger
+              color: isEnabled
+                  ? statusColor
                   : Colors.white.withValues(alpha: 0.4),
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.remove_red_eye,
-                size: 18,
-                color: eyeTrackingProvider.isEnabled
-                    ? Colors.white
-                    : AppColors.muted,
-              ),
+              Icon(Icons.remove_red_eye, size: 18, color: foregroundColor),
               const SizedBox(width: 8),
               Text(
-                eyeTrackingProvider.isEnabled ? 'ET: WŁ.' : 'ET: WYŁ.',
+                label,
                 style: TextStyle(
                   fontSize: 12,
-                  color: eyeTrackingProvider.isEnabled
-                      ? Colors.white
-                      : AppColors.muted,
+                  color: foregroundColor,
                   fontWeight: FontWeight.w600,
                 ),
               ),

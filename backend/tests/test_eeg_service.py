@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import unittest
 
+from eeg_mock import build_mock_eeg_payload, reset_mock_state
 from eeg_service import (
     BrainAccessEegService,
     DisabledEegService,
@@ -54,6 +55,19 @@ async def _wait_for_status(
 
 
 class EegServiceTests(unittest.IsolatedAsyncioTestCase):
+    def test_mock_payloads_have_contiguous_non_overlapping_sample_offsets(self) -> None:
+        reset_mock_state()
+
+        first = build_mock_eeg_payload()
+        second = build_mock_eeg_payload()
+
+        self.assertEqual(first["sequence"], 0)
+        self.assertEqual(first["sample_start"], 0)
+        self.assertEqual(first["sample_count"], 250)
+        self.assertEqual(second["sequence"], 1)
+        self.assertEqual(second["sample_start"], 250)
+        self.assertEqual(second["sample_count"], 250)
+
     async def test_disabled_service_stays_disconnected(self) -> None:
         manager = FakeConnectionManager()
         service = DisabledEegService()

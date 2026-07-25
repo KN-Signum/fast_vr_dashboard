@@ -21,6 +21,7 @@ class SideMenu extends StatelessWidget {
     if (!isOpen) {
       return const SizedBox.shrink();
     }
+    final session = context.watch<SessionProvider>();
 
     return Container(
       width: 200,
@@ -35,7 +36,18 @@ class SideMenu extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(16),
             child: ElevatedButton.icon(
-              onPressed: () => context.read<SessionProvider>().endSession(),
+              onPressed: session.isBusy
+                  ? null
+                  : () async {
+                      final success = await session.endSession();
+                      if (!success &&
+                          context.mounted &&
+                          session.errorMessage != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(session.errorMessage!)),
+                        );
+                      }
+                    },
               icon: const Icon(Icons.stop_circle),
               label: const Text('Zakończ sesję'),
               style: ElevatedButton.styleFrom(

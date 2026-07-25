@@ -23,6 +23,25 @@ The release dashboard derives its WebSocket address from the page URL and
 connects to same-origin `/ws`, including a custom FastAPI port. A debug build
 started with `flutter run` connects to `ws://127.0.0.1:8080/ws`.
 
+## Session recording
+
+FastAPI is the authoritative owner of sessions. The Flutter dashboard creates
+and ends sessions through `/api/sessions`, adds observed events through the
+session API, and uses WebSocket data only for the live view. The backend records
+EEG, eye-tracking, VR JSON messages, and VR frame metadata while a session is
+active.
+
+Session metadata and counts are stored in SQLite. Raw streams are appended to
+NDJSON files under the writable application data directory. Ending a session
+flushes pending records before the summary is returned. If the application
+stops with an active session, that session is marked as interrupted on the next
+startup, its counters are reconciled with the raw files, and it is shown in the
+dashboard summary.
+
+The summary download is JSON. The raw-data download is a ZIP containing the
+summary plus separate NDJSON files for EEG, eye tracking, VR events, VR frame
+metadata, and clinician observations.
+
 ## Frontend release build
 
 The release version is stored in `VERSION`. The same version must be present in
@@ -83,8 +102,9 @@ standalone outside it.
 
 The package build writes `package-manifest.json` with release metadata and the
 SHA-256 hash of every packaged file. It then starts the frozen application with
-mock EEG and eye tracking, checks `/api/health`, and verifies that Flutter is
-served. File verification and the smoke test can also be run independently:
+mock EEG and eye tracking, checks `/api/health`, verifies that Flutter is
+served, and exercises session creation, completion, and both export formats.
+File verification and the smoke test can also be run independently:
 
 ```powershell
 uv run --project backend --group package python scripts\verify_backend_package.py

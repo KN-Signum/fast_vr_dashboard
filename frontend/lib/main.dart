@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/game_provider.dart';
@@ -6,7 +7,9 @@ import 'providers/eye_tracking_provider.dart';
 import 'providers/eeg_provider.dart';
 import 'providers/session_provider.dart';
 import 'screens/app_shell.dart';
+import 'services/session_api.dart';
 import 'theme/app_style.dart';
+import 'utils/backend_url.dart';
 
 void main() => runApp(const ViewerApp());
 
@@ -21,7 +24,16 @@ class ViewerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => GameProvider()),
         ChangeNotifierProvider(create: (_) => EyeTrackingProvider()),
         ChangeNotifierProvider(create: (_) => EegProvider()),
-        ChangeNotifierProvider(create: (_) => SessionProvider()),
+        ChangeNotifierProvider(
+          create: (_) => SessionProvider(
+            api: HttpSessionApi(
+              baseUri: resolveBackendHttpBase(
+                Uri.base,
+                useDevelopmentBackend: kDebugMode,
+              ),
+            ),
+          ),
+        ),
       ],
       child: MaterialApp(
         title: 'Panel VR',

@@ -157,7 +157,7 @@ class BrainAccessEegService(EegService):
                     )
                 else:
                     await manager.broadcast_json(payload)
-                await self._wait_for_tick(0.1)
+                await self._wait_for_tick(1.0)
         finally:
             try:
                 await asyncio.to_thread(stream.close)

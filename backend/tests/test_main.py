@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
+
+from fastapi.testclient import TestClient
 
 from config import AppSettings
 from eeg_service import EegStatus
@@ -25,6 +29,7 @@ def _settings(
             "VRDASH_ET_MODE": et_mode,
             "VRDASH_BEACON_ENABLED": "false",
             "VRDASH_STATIC_DIR": str(static_dir),
+            "VRDASH_DATA_DIR": str(static_dir / "data"),
         }
     )
 
@@ -133,6 +138,68 @@ class AppFactoryTests(unittest.IsolatedAsyncioTestCase):
                 "Nie znaleziono aplikacji Flutter Web",
             ):
                 create_app(settings)
+
+
+class SessionApiTests(unittest.TestCase):
+    def test_session_lifecycle_records_websocket_data_and_downloads_raw_zip(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            static_dir = Path(temporary_directory)
+            (static_dir / "index.html").write_text("<html></html>", encoding="utf-8")
+            app = create_app(_settings(static_dir))
+
+            with TestClient(app) as client:
+                created_response = client.post(
+                    "/api/sessions",
+                    json={
+                        "patient_id": "patient-001",
+                        "preferred_hand": "left",
+                        "notes": "API test",
+                    },
+                )
+                self.assertEqual(created_response.status_code, 201)
+                session_id = created_response.json()["session_id"]
+
+                with client.websocket_connect("/ws?role=vr") as websocket:
+                    websocket.send_json({"type": "eeg_data", "sequence": 0})
+                    websocket.send_json(
+                        {"type": "eye_tracking", "gaze_screen_x": 0.5}
+                    )
+                    websocket.send_json({"type": "scene_state", "scene": "forest"})
+                    websocket.send_bytes(b"\xff\xd8frame")
+
+                with client.websocket_connect("/ws?role=dashboard") as websocket:
+                    websocket.send_json({"type": "command", "action": "pause"})
+
+                event_response = client.post(
+                    f"/api/sessions/{session_id}/events",
+                    json={
+                        "label": "Przerwa",
+                        "category": "support",
+                        "note": "",
+                    },
+                )
+                self.assertEqual(event_response.status_code, 201)
+
+                ended_response = client.post(f"/api/sessions/{session_id}/end")
+                self.assertEqual(ended_response.status_code, 200)
+                summary = ended_response.json()
+                self.assertEqual(summary["status"], "completed")
+                self.assertEqual(summary["counts"]["eeg_records"], 1)
+                self.assertEqual(summary["counts"]["eye_tracking_records"], 1)
+                self.assertEqual(summary["counts"]["vr_events"], 1)
+                self.assertEqual(summary["counts"]["vr_frames"], 1)
+                self.assertEqual(summary["counts"]["session_events"], 1)
+
+                raw_response = client.get(
+                    f"/api/sessions/{session_id}/download/raw"
+                )
+                self.assertEqual(raw_response.status_code, 200)
+                self.assertEqual(raw_response.headers["content-type"], "application/zip")
+                with zipfile.ZipFile(io.BytesIO(raw_response.content)) as archive:
+                    self.assertIn("eeg.ndjson", archive.namelist())
+                    self.assertIn("summary_report.json", archive.namelist())
 
 
 if __name__ == "__main__":

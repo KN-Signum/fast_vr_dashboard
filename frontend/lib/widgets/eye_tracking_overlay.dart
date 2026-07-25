@@ -5,7 +5,8 @@ class EyeTrackingOverlay extends CustomPainter {
   final EyeTrackingProvider provider;
   final Size canvasSize;
 
-  EyeTrackingOverlay({required this.provider, required this.canvasSize});
+  EyeTrackingOverlay({required this.provider, required this.canvasSize})
+    : super(repaint: provider);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -64,9 +65,8 @@ class EyeTrackingOverlay extends CustomPainter {
 
   @override
   bool shouldRepaint(EyeTrackingOverlay oldDelegate) {
-    // Repaint when eye data or enabled state changes
-    return provider.lastEyeData != oldDelegate.provider.lastEyeData ||
-        provider.isEnabled != oldDelegate.provider.isEnabled;
+    return oldDelegate.provider != provider ||
+        oldDelegate.canvasSize != canvasSize;
   }
 }
 
@@ -83,17 +83,12 @@ class EyeTrackingVisualizationLayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: eyeTrackingProvider,
-      builder: (context, _) {
-        return CustomPaint(
-          painter: EyeTrackingOverlay(
-            provider: eyeTrackingProvider,
-            canvasSize: previewSize,
-          ),
-          size: previewSize,
-        );
-      },
+    return CustomPaint(
+      painter: EyeTrackingOverlay(
+        provider: eyeTrackingProvider,
+        canvasSize: previewSize,
+      ),
+      size: previewSize,
     );
   }
 }

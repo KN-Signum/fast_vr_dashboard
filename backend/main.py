@@ -5,10 +5,13 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Literal
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Response, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+from starlette.background import BackgroundTask
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 
@@ -17,6 +20,13 @@ from config import AppSettings
 from connection_manager import ConnectionManager
 from eeg_service import create_eeg_service
 from paths import AppPaths
+from session_repository import (
+    ActiveSessionExistsError,
+    SessionNotFoundError,
+    SessionRepository,
+    SessionStateError,
+)
+from session_service import SessionService
 
 
 logger = logging.getLogger(__name__)
@@ -29,6 +39,18 @@ class RuntimeState:
     et_error: str | None = None
     beacon_running: bool = False
     tasks: list[asyncio.Task] = field(default_factory=list)
+
+
+class SessionCreateRequest(BaseModel):
+    patient_id: str = Field(min_length=1, max_length=256)
+    preferred_hand: Literal["not_specified", "left", "right", "ambidextrous"]
+    notes: str = Field(default="", max_length=10_000)
+
+
+class SessionEventRequest(BaseModel):
+    label: str = Field(min_length=1, max_length=256)
+    category: str = Field(min_length=1, max_length=128)
+    note: str = Field(default="", max_length=4_000)
 
 
 class ResponseHeadersMiddleware(BaseHTTPMiddleware):
@@ -125,6 +147,18 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         resolved_settings.eeg_device_name,
     )
     beacon = BeaconManager(ws_port=resolved_settings.port)
+    session_repository = SessionRepository(
+        paths.session_database,
+        paths.session_dir,
+    )
+    session_service = SessionService(
+        session_repository,
+        export_dir=paths.export_dir,
+    )
+    manager.set_recording_observers(
+        json_observer=session_service.record_json,
+        binary_observer=session_service.record_binary,
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -135,30 +169,31 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             resolved_settings.et_mode,
         )
 
-        await eeg_service.start(manager)
-
         try:
-            et_runner = _load_et_runner(resolved_settings.et_mode)
-            if et_runner is not None:
-                _start_stream(
-                    name="et",
-                    runner=et_runner,
-                    manager=manager,
-                    runtime=runtime,
-                )
-        except Exception as error:
-            runtime.et_status = "error"
-            runtime.et_error = str(error)
-            logger.exception("Could not initialize the eye-tracking stream")
+            await session_service.start()
+            await eeg_service.start(manager)
 
-        if resolved_settings.beacon_enabled:
             try:
-                await beacon.start()
-                runtime.beacon_running = beacon.running
-            except Exception:
-                logger.exception("Could not start the UDP beacon")
+                et_runner = _load_et_runner(resolved_settings.et_mode)
+                if et_runner is not None:
+                    _start_stream(
+                        name="et",
+                        runner=et_runner,
+                        manager=manager,
+                        runtime=runtime,
+                    )
+            except Exception as error:
+                runtime.et_status = "error"
+                runtime.et_error = str(error)
+                logger.exception("Could not initialize the eye-tracking stream")
 
-        try:
+            if resolved_settings.beacon_enabled:
+                try:
+                    await beacon.start()
+                    runtime.beacon_running = beacon.running
+                except Exception:
+                    logger.exception("Could not start the UDP beacon")
+
             yield
         finally:
             logger.info("Stopping Panel VR background services")
@@ -176,6 +211,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
 
             if runtime.et_status not in {"disabled", "awaiting_vr", "error"}:
                 runtime.et_status = "stopped"
+            await session_service.stop()
 
     app = FastAPI(
         title="Panel VR",
@@ -188,6 +224,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.state.runtime = runtime
     app.state.eeg_service = eeg_service
     app.state.beacon = beacon
+    app.state.session_service = session_service
 
     app.add_middleware(
         CORSMiddleware,
@@ -213,12 +250,102 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             "et_status": runtime.et_status,
             "et_error": runtime.et_error,
             "beacon_running": runtime.beacon_running,
+            "active_session_id": session_service.active_session_id,
+            "session_recording_error": session_service.error,
         }
+
+    @app.post("/api/sessions", status_code=201)
+    async def create_session(request: SessionCreateRequest) -> dict:
+        patient_id = request.patient_id.strip()
+        if not patient_id:
+            raise HTTPException(status_code=422, detail="ID pacjenta jest wymagane")
+        try:
+            return await session_service.create_session(
+                patient_id=patient_id,
+                preferred_hand=request.preferred_hand,
+                notes=request.notes.strip(),
+            )
+        except ActiveSessionExistsError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @app.get("/api/sessions/active")
+    async def active_session() -> dict | None:
+        return await session_service.active_summary()
+
+    @app.get("/api/sessions/recovered")
+    async def recovered_session() -> dict | None:
+        return await session_service.recovered_summary()
+
+    @app.get("/api/sessions/{session_id}/summary")
+    async def session_summary(session_id: str) -> dict:
+        try:
+            return await session_service.summary(session_id)
+        except SessionNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @app.post("/api/sessions/{session_id}/events", status_code=201)
+    async def add_session_event(
+        session_id: str,
+        request: SessionEventRequest,
+    ) -> dict:
+        label = request.label.strip()
+        if not label:
+            raise HTTPException(status_code=422, detail="Nazwa zdarzenia jest wymagana")
+        try:
+            return await session_service.add_event(
+                session_id,
+                label=label,
+                category=request.category.strip(),
+                note=request.note.strip(),
+            )
+        except SessionNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except SessionStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @app.post("/api/sessions/{session_id}/end")
+    async def end_session(session_id: str) -> dict:
+        try:
+            return await session_service.end_session(session_id)
+        except SessionNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @app.get("/api/sessions/{session_id}/download/summary")
+    async def download_session_summary(session_id: str) -> Response:
+        try:
+            summary = await session_service.summary(session_id)
+        except SessionNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        return Response(
+            content=json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+            media_type="application/json",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="summary_report_{session_id}.json"'
+                )
+            },
+        )
+
+    @app.get("/api/sessions/{session_id}/download/raw")
+    async def download_session_raw_data(session_id: str) -> FileResponse:
+        try:
+            archive = await session_service.raw_archive(session_id)
+        except SessionNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        return FileResponse(
+            archive,
+            media_type="application/zip",
+            filename=f"raw_data_{session_id}.zip",
+            background=BackgroundTask(archive.unlink, missing_ok=True),
+        )
 
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket):
-        await manager.connect(websocket)
-        logger.info("WebSocket connected from %s", websocket.client)
+        role = websocket.query_params.get("role", "vr").strip().lower()
+        if role not in {"dashboard", "vr"}:
+            role = "unknown"
+        await manager.connect(websocket, role=role)
+        logger.info("WebSocket %s connected from %s", role, websocket.client)
         try:
             while True:
                 data = await websocket.receive()
@@ -234,6 +361,9 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
                     )
                 elif text_data is not None:
                     message = json.loads(text_data)
+                    if not isinstance(message, dict):
+                        logger.warning("Ignoring non-object WebSocket JSON")
+                        continue
                     logger.debug(
                         "WebSocket JSON received: %s",
                         message.get("type", "unknown"),

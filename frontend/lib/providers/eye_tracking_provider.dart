@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 // Data models for Eye Tracking
@@ -76,31 +78,17 @@ class EyeTrackingData {
   static double? _optionalScreenCoord(dynamic value) {
     if (value is! num) return null;
     final coord = value.toDouble();
-    if (coord < 0) return null;
+    if (!coord.isFinite || coord < 0 || coord > 1) return null;
     return coord;
   }
 
   /// Map gaze to preview coordinates.
-  /// Prefers normalized spectator-camera UVs from the headset when present.
-  Offset toScreenCoordinate(Size screenSize) {
-    if (gazeScreenX != null && gazeScreenY != null) {
-      return Offset(
-        gazeScreenX!.clamp(0.0, 1.0) * screenSize.width,
-        (1.0 - gazeScreenY!.clamp(0.0, 1.0)) * screenSize.height,
-      );
-    }
-
-    // Fallback: project gaze hit point relative to the player on the XZ plane.
-    const worldSpan = 24.0;
-    final dx = eyesPosition.x - playerPosition.x;
-    final dz = eyesPosition.z - playerPosition.z;
-
-    final normalizedX = (0.5 + (dx / worldSpan)).clamp(0.0, 1.0);
-    final normalizedY = (0.5 - (dz / worldSpan)).clamp(0.0, 1.0);
-
+  /// Returns null when the headset could not project gaze into the streamed view.
+  Offset? toScreenCoordinate(Size screenSize) {
+    if (gazeScreenX == null || gazeScreenY == null) return null;
     return Offset(
-      normalizedX * screenSize.width,
-      normalizedY * screenSize.height,
+      gazeScreenX! * screenSize.width,
+      (1.0 - gazeScreenY!) * screenSize.height,
     );
   }
 }
@@ -108,19 +96,22 @@ class EyeTrackingData {
 class EyeTrackingProvider with ChangeNotifier {
   EyeTrackingData? _lastEyeData;
   bool _isEnabled = true;
+  bool _isReceiving = false;
+  Timer? _staleTimer;
 
   EyeTrackingData? get lastEyeData => _lastEyeData;
   bool get isEnabled => _isEnabled;
-  bool get isReceiving {
-    final data = _lastEyeData;
-    if (data == null) return false;
-    return DateTime.now().difference(data.timestamp) <=
-        const Duration(seconds: 3);
-  }
+  bool get isReceiving => _isReceiving;
 
   void updateFromJson(Map<String, dynamic> json) {
     try {
       _lastEyeData = EyeTrackingData.fromJson(json);
+      _isReceiving = true;
+      _staleTimer?.cancel();
+      _staleTimer = Timer(const Duration(seconds: 3), () {
+        _isReceiving = false;
+        notifyListeners();
+      });
       notifyListeners();
     } catch (e) {
       debugPrint('❌ Failed to parse eye tracking data: $e');
@@ -136,6 +127,13 @@ class EyeTrackingProvider with ChangeNotifier {
     if (_lastEyeData == null) return [];
 
     final gazePoint = _lastEyeData!.toScreenCoordinate(screenSize);
+    if (gazePoint == null) return [];
     return [gazePoint];
+  }
+
+  @override
+  void dispose() {
+    _staleTimer?.cancel();
+    super.dispose();
   }
 }

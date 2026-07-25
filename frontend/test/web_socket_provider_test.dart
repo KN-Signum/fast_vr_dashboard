@@ -36,4 +36,23 @@ void main() {
       expect(url, 'ws://127.0.0.1:8080/ws?role=dashboard');
     });
   });
+
+  group('resolveBackendHttpBase', () {
+    test('preserves the origin used by a packaged dashboard', () {
+      final uri = resolveBackendHttpBase(
+        Uri.parse('https://dashboard.example.com:9443/session'),
+      );
+
+      expect(uri.toString(), 'https://dashboard.example.com:9443');
+    });
+
+    test('uses localhost backend during Flutter development', () {
+      final uri = resolveBackendHttpBase(
+        Uri.parse('http://localhost:5173'),
+        useDevelopmentBackend: true,
+      );
+
+      expect(uri.toString(), 'http://127.0.0.1:8080');
+    });
+  });
 }
