@@ -143,3 +143,21 @@ Unsigned builds are supported for internal testing but may trigger Microsoft
 Defender SmartScreen. Final artifacts are written below `release\<version>`.
 Follow [WINDOWS_RELEASE_CHECKLIST.md](WINDOWS_RELEASE_CHECKLIST.md) for clean
 machine and hardware acceptance testing.
+
+### GitHub Actions build
+
+The Windows release can also be built on a GitHub-hosted Windows x64 runner.
+Open **Actions**, select **Build Windows Release**, and choose **Run workflow**.
+The BrainAccess redistribution confirmation must be selected for every run.
+The resulting installer, portable ZIP, checksums, and release manifest are
+available in the run's `PanelVR-<version>-windows-x64` artifact.
+
+Unsigned acceptance builds require no repository secrets. To enable production
+signing, configure these encrypted Actions secrets:
+
+- `WINDOWS_CODESIGN_PFX_BASE64`: Base64-encoded PFX file.
+- `WINDOWS_CODESIGN_PFX_PASSWORD`: Password for the PFX file.
+
+Then select **Sign the executable and installer** when starting the workflow.
+The certificate is imported into the temporary runner's user certificate store
+and removed after the build.
