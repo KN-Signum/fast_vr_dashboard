@@ -11,9 +11,76 @@ from eeg_payload import EegPayload
 
 logger = logging.getLogger(__name__)
 
-CHANNELS = ["Fp1", "Fp2", "O1", "O2"]
-CHANNEL_MAP = {0: "Fp1", 1: "Fp2", 2: "O1", 3: "O2"}
+CHANNELS = ["F3", "F4", "C3", "C4", "P3", "P4", "O1", "O2"]
+CHANNEL_MAP = dict(enumerate(CHANNELS))
+BIAS_CHANNELS = list(CHANNEL_MAP)
 SAMPLING_RATE = 250
+ERD_BASELINE_SECONDS = 30
+ERD_WINDOW_SECONDS = 1
+ALPHA_BAND_HZ = (8.0, 13.0)
+
+
+class _AlphaErdProcessor:
+    def __init__(self) -> None:
+        self._window_samples = SAMPLING_RATE * ERD_WINDOW_SECONDS
+        self._pending = np.empty((len(CHANNELS), 0), dtype=float)
+        self._baseline_windows: list[np.ndarray] = []
+        self._baseline: np.ndarray | None = None
+        self._collecting = False
+
+    def start_baseline(self) -> None:
+        self._pending = np.empty((len(CHANNELS), 0), dtype=float)
+        self._baseline_windows = []
+        self._baseline = None
+        self._collecting = True
+
+    @property
+    def baseline_seconds(self) -> int:
+        return min(len(self._baseline_windows), ERD_BASELINE_SECONDS)
+
+    @property
+    def status(self) -> str:
+        if self._baseline is not None:
+            return "ready"
+        return "collecting" if self._collecting else "waiting"
+
+    def add_samples(
+        self,
+        samples: np.ndarray,
+    ) -> tuple[dict[str, list[float]], dict[str, list[float]]]:
+        if self._baseline is None and not self._collecting:
+            return {}, {}
+        self._pending = np.concatenate((self._pending, samples), axis=1)
+        latest_power: np.ndarray | None = None
+
+        while self._pending.shape[1] >= self._window_samples:
+            window = self._pending[:, : self._window_samples]
+            self._pending = self._pending[:, self._window_samples :]
+            power = self._alpha_power(window)
+
+            if self._baseline is None:
+                self._baseline_windows.append(power)
+                if len(self._baseline_windows) == ERD_BASELINE_SECONDS:
+                    self._baseline = np.mean(self._baseline_windows, axis=0)
+                    self._collecting = False
+            else:
+                latest_power = power
+
+        if latest_power is None or self._baseline is None:
+            return {}, {}
+
+        safe_baseline = np.maximum(self._baseline, np.finfo(float).eps)
+        erd = (self._baseline - latest_power) / safe_baseline * 100.0
+        return {"alpha": latest_power.tolist()}, {"alpha": erd.tolist()}
+
+    def _alpha_power(self, samples: np.ndarray) -> np.ndarray:
+        centered = samples - np.mean(samples, axis=1, keepdims=True)
+        tapered = centered * np.hanning(samples.shape[1])
+        spectrum = np.abs(np.fft.rfft(tapered, axis=1)) ** 2
+        frequencies = np.fft.rfftfreq(samples.shape[1], d=1.0 / SAMPLING_RATE)
+        low, high = ALPHA_BAND_HZ
+        band = (frequencies >= low) & (frequencies < high)
+        return np.mean(spectrum[:, band], axis=1)
 
 
 class _FreshEegBuffer:
@@ -68,6 +135,7 @@ class BrainAccessStream:
         self._core_initialized = False
         self._sequence = 0
         self._sample_cursor = 0
+        self._erd_processor = _AlphaErdProcessor()
 
     def start(self) -> None:
         from brainaccess.core import eeg_channel
@@ -77,6 +145,7 @@ class BrainAccessStream:
         self._manager_destroyed = False
         self._sequence = 0
         self._sample_cursor = 0
+        self._erd_processor = _AlphaErdProcessor()
         try:
             self._eeg = acquisition.EEG(mode="roll")
             self._core_initialized = True
@@ -85,6 +154,7 @@ class BrainAccessStream:
                 self._manager,
                 device_name=self.device_name,
                 cap=CHANNEL_MAP,
+                bias=BIAS_CHANNELS,
                 sfreq=SAMPLING_RATE,
                 zeros_at_start=SAMPLING_RATE,
             )
@@ -111,6 +181,7 @@ class BrainAccessStream:
             return None
 
         sample_count = eeg_uv.shape[1]
+        band_power, erd = self._erd_processor.add_samples(eeg_uv)
         payload = EegPayload(
             sampling_rate=SAMPLING_RATE,
             channels=CHANNELS,
@@ -119,6 +190,11 @@ class BrainAccessStream:
                 for index, channel in enumerate(CHANNELS)
             },
             data_uv=eeg_uv[:, -1].tolist(),
+            band_power=band_power,
+            erd=erd,
+            erd_status=self._erd_processor.status,
+            erd_baseline_seconds=self._erd_processor.baseline_seconds,
+            erd_baseline_target_seconds=ERD_BASELINE_SECONDS,
             sequence=self._sequence,
             sample_start=self._sample_cursor,
             sample_count=sample_count,
@@ -126,6 +202,9 @@ class BrainAccessStream:
         self._sequence += 1
         self._sample_cursor += sample_count
         return payload
+
+    def start_erd_baseline(self) -> None:
+        self._erd_processor.start_baseline()
 
     def close(self) -> None:
         eeg = self._eeg

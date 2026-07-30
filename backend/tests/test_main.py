@@ -55,6 +55,9 @@ class FakeEegService:
     async def stop(self) -> None:
         self.status = EegStatus.DISCONNECTED
 
+    async def start_erd_baseline(self) -> None:
+        return
+
 
 class AppFactoryTests(unittest.IsolatedAsyncioTestCase):
     async def test_health_reports_runtime_configuration(self) -> None:

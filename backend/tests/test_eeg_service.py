@@ -28,6 +28,7 @@ class FakeBrainAccessStream:
         self.fail_on_start = fail_on_start
         self.started = False
         self.closed = False
+        self.baseline_started = False
 
     def start(self) -> None:
         if self.fail_on_start:
@@ -36,6 +37,9 @@ class FakeBrainAccessStream:
 
     def build_payload(self) -> dict:
         return {"type": "eeg_data", "channels": ["Fp1"]}
+
+    def start_erd_baseline(self) -> None:
+        self.baseline_started = True
 
     def close(self) -> None:
         self.closed = True
@@ -91,6 +95,7 @@ class EegServiceTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.wait_for(manager.received.wait(), timeout=2.0)
 
         self.assertEqual(service.status, EegStatus.STREAMING)
+
         self.assertEqual(manager.payloads[0]["type"], "eeg_data")
 
         await service.stop()
@@ -116,6 +121,9 @@ class EegServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(requested_devices, ["BA MINI TEST"])
         self.assertTrue(stream.started)
         self.assertEqual(service.status, EegStatus.STREAMING)
+
+        await service.start_erd_baseline()
+        self.assertTrue(stream.baseline_started)
 
         await service.stop()
         self.assertTrue(stream.closed)

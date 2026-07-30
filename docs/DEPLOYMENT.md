@@ -189,7 +189,7 @@ Perform this on the actual client laptop, sensor, adapter, network, and headset.
 
 1. Confirm `eeg_mode` is `real`.
 2. Wait for `eeg_status` to become `streaming`.
-3. Confirm all four plots update continuously for at least 10 minutes.
+3. Confirm all eight plots update continuously for at least 10 minutes.
 4. Move or briefly touch an electrode only as permitted by the test procedure
    and verify the raw trace changes.
 5. Confirm no `eeg_error` appears.

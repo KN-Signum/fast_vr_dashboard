@@ -34,11 +34,17 @@ State is separated into providers:
 | `WebSocketProvider` | Connection, VR frames, message timestamps, EEG/ET callbacks |
 | `GameProvider` | Unity state and available control actions |
 | `EyeTrackingProvider` | ET parsing, freshness, visibility, and gaze projection |
-| `EegProvider` | Per-channel five-second rolling raw-signal buffers |
+| `EegProvider` | Per-channel 60-second raw and filtered display buffers |
 | `SessionProvider` | REST-backed session lifecycle, events, summary, downloads |
 
 Backend, EEG, VR, and ET indicators are activity indicators. Live data is
 considered stale after three seconds.
+
+The EEG panel retains 60 seconds per channel and always uses a display-only
+1-40 Hz filter. Recorded `raw_signal` values are never replaced. Channel badges
+warn about clipping,
+flat data, and unusually high filtered amplitude. Creating a session starts the
+30-second ERD baseline.
 
 ## Checks
 

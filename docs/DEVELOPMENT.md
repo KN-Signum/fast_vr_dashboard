@@ -227,14 +227,15 @@ Then inspect:
 
 - a sustained callback stream for the full duration;
 - increasing sequence and sample positions;
-- nonconstant values for all four channels;
+- nonconstant values for all eight channels;
+- stable common-mode behavior with all eight channels contributing to bias feedback;
 - backend `/api/health` showing `eeg_status: streaming`;
 - live frontend plots;
 - `eeg.ndjson` growing during an active session.
 
-The current implementation forwards raw values. Add signal processing only
-with explicit algorithms, units, windowing, validation, and tests. Do not
-populate placeholder metrics with plausible-looking values.
+The current implementation forwards raw values and calculates alpha ERD from a
+fixed 30-second baseline using one-second 8-13 Hz windows. Changes to this
+processing require explicit algorithms, units, windowing, validation, and tests.
 
 ## Debugging
 

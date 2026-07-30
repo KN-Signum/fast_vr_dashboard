@@ -25,6 +25,8 @@ class BrainAccessStreamProtocol(Protocol):
 
     def build_payload(self) -> dict | None: ...
 
+    def start_erd_baseline(self) -> None: ...
+
     def close(self) -> None: ...
 
 
@@ -71,6 +73,9 @@ class EegService(ABC):
         self._task = None
         if self.status != EegStatus.ERROR:
             self.status = EegStatus.DISCONNECTED
+
+    async def start_erd_baseline(self) -> None:
+        return
 
     async def _run_guarded(self, manager: ConnectionManager) -> None:
         try:
@@ -208,6 +213,12 @@ class BrainAccessEegService(EegService):
             if not self._stop_event.is_set():
                 self.status = EegStatus.CONNECTING
                 self.error = None
+
+    async def start_erd_baseline(self) -> None:
+        stream = self._stream
+        if stream is None or self.status != EegStatus.STREAMING:
+            raise RuntimeError("EEG stream is not ready for ERD baseline")
+        await asyncio.to_thread(stream.start_erd_baseline)
 
 
 def _create_brainaccess_stream(device_name: str) -> BrainAccessStreamProtocol:

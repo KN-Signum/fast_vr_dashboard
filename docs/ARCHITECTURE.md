@@ -60,13 +60,16 @@ below.
 Windows DLLs. The current stream:
 
 - connects to the configured BLE device;
-- acquires `Fp1`, `Fp2`, `O1`, and `O2` at 250 Hz;
+- acquires `F3`, `F4`, `C3`, `C4`, `P3`, `P4`, `O1`, and `O2` at 250 Hz;
+- enables all eight measurement channels as bias-feedback contributors;
 - copies callback chunks into a thread-safe buffer;
 - broadcasts each fresh chunk as raw microvolt values;
 - detects missing callbacks and lets the service reconnect.
 
-There is deliberately no unvalidated EEG processing. `band_power` and `erd`
-remain empty and `focus_index` remains `0.0`.
+Alpha power and ERD use non-overlapping one-second windows in the 8-13 Hz band.
+Creating a session starts a fixed 30-second baseline, so connection transients
+are not used. ERD is emitted after that baseline is ready; `focus_index` remains
+`0.0`.
 
 ### Session Storage
 
@@ -141,16 +144,23 @@ explicitly where practical.
 {
   "type": "eeg_data",
   "sampling_rate": 250,
-  "channels": ["Fp1", "Fp2", "O1", "O2"],
+  "channels": ["F3", "F4", "C3", "C4", "P3", "P4", "O1", "O2"],
   "raw_signal": {
-    "Fp1": [12.3, 12.6],
-    "Fp2": [8.1, 8.0],
+    "F3": [12.3, 12.6],
+    "F4": [8.1, 8.0],
+    "C3": [2.1, 2.0],
+    "C4": [1.8, 1.9],
+    "P3": [-1.2, -1.0],
+    "P4": [-2.2, -2.0],
     "O1": [-3.2, -3.0],
     "O2": [-4.1, -4.3]
   },
-  "data_uv": [12.6, 8.0, -3.0, -4.3],
-  "band_power": {},
-  "erd": {},
+  "data_uv": [12.6, 8.0, 2.0, 1.9, -1.0, -2.0, -3.0, -4.3],
+  "band_power": {"alpha": [1.0, 1.1, 0.9, 1.2, 1.0, 0.8, 1.3, 1.4]},
+  "erd": {"alpha": [2.0, -1.0, 4.0, 3.0, 1.0, 5.0, -2.0, 2.0]},
+  "erd_status": "ready",
+  "erd_baseline_seconds": 30,
+  "erd_baseline_target_seconds": 30,
   "focus_index": 0.0,
   "sequence": 10,
   "sample_start": 500,
@@ -162,6 +172,9 @@ explicitly where practical.
 `raw_signal` is the canonical plotted and exported signal. `sample_start` is a
 monotonic sample cursor within the current sensor connection, and
 `sample_count` is the number of values per channel in this message.
+Before a session, `erd_status` is `waiting`. During baseline collection it is
+`collecting`, the elapsed seconds increase to 30, and `band_power`/`erd` remain
+empty.
 
 ### Eye-Tracking Message
 

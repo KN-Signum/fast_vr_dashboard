@@ -260,11 +260,19 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         if not patient_id:
             raise HTTPException(status_code=422, detail="ID pacjenta jest wymagane")
         try:
-            return await session_service.create_session(
+            created = await session_service.create_session(
                 patient_id=patient_id,
                 preferred_hand=request.preferred_hand,
                 notes=request.notes.strip(),
             )
+            try:
+                await eeg_service.start_erd_baseline()
+            except Exception:
+                logger.warning(
+                    "Could not start the ERD baseline for the new session",
+                    exc_info=True,
+                )
+            return created
         except ActiveSessionExistsError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
 
