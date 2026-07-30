@@ -76,6 +76,7 @@ class EegSnapshot {
   final Map<String, List<double>> rawSignal;
   final Map<String, List<double>> bandPower;
   final Map<String, List<double>> erd;
+  final Map<String, List<double>> conventionalErd;
   final String erdStatus;
   final int erdBaselineSeconds;
   final int erdBaselineTargetSeconds;
@@ -92,6 +93,7 @@ class EegSnapshot {
     required this.rawSignal,
     required this.bandPower,
     required this.erd,
+    required this.conventionalErd,
     required this.erdStatus,
     required this.erdBaselineSeconds,
     required this.erdBaselineTargetSeconds,
@@ -128,6 +130,7 @@ class EegSnapshot {
       rawSignal: parseSeries(json['raw_signal']),
       bandPower: parseSeries(json['band_power']),
       erd: parseSeries(json['erd']),
+      conventionalErd: parseSeries(json['erd_conventional']),
       erdStatus: json['erd_status'] as String? ?? 'unavailable',
       erdBaselineSeconds: (json['erd_baseline_seconds'] as num?)?.toInt() ?? 0,
       erdBaselineTargetSeconds:

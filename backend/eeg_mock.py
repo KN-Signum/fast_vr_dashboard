@@ -80,8 +80,11 @@ def _band_power_from_waveforms(waveforms: np.ndarray) -> dict[str, list[float]]:
     return band_power
 
 
-def _update_baseline(band_power: dict[str, list[float]]) -> dict[str, list[float]]:
+def _update_baseline(
+    band_power: dict[str, list[float]],
+) -> tuple[dict[str, list[float]], dict[str, list[float]]]:
     erd: dict[str, list[float]] = {}
+    erd_conventional: dict[str, list[float]] = {}
     smoothing = 0.92
 
     for band_name, values in band_power.items():
@@ -93,10 +96,15 @@ def _update_baseline(band_power: dict[str, list[float]]) -> dict[str, list[float
             baseline = smoothing * baseline + (1.0 - smoothing) * current
         _state.baseline[band_name] = baseline
 
-        safe_baseline = np.where(baseline == 0.0, 1.0, baseline)
-        erd[band_name] = (((baseline - current) / safe_baseline) * 100.0).tolist()
+        epsilon = np.finfo(float).eps
+        erd[band_name] = (
+            (baseline - current) / (baseline + current + epsilon) * 100.0
+        ).tolist()
+        erd_conventional[band_name] = (
+            (baseline - current) / np.maximum(baseline, epsilon) * 100.0
+        ).tolist()
 
-    return erd
+    return erd, erd_conventional
 
 
 def build_mock_eeg_payload() -> dict:
@@ -105,7 +113,7 @@ def build_mock_eeg_payload() -> dict:
     waveforms = _generate_waveforms()
     _state.sequence += 1
     band_power = _band_power_from_waveforms(waveforms)
-    erd = _update_baseline(band_power)
+    erd, erd_conventional = _update_baseline(band_power)
 
     alpha = np.asarray(band_power["alpha"], dtype=float)
     beta = np.asarray(band_power["beta"], dtype=float)
@@ -121,6 +129,7 @@ def build_mock_eeg_payload() -> dict:
         data_uv=waveforms[:, -1].tolist(),
         band_power=band_power,
         erd=erd,
+        erd_conventional=erd_conventional,
         erd_status="ready",
         erd_baseline_seconds=30,
         erd_baseline_target_seconds=30,

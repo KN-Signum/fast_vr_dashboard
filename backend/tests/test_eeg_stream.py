@@ -81,6 +81,7 @@ class BrainAccessStreamPayloadTests(unittest.TestCase):
         self.assertEqual(first["data_uv"], [12.0, 22.0, 32.0, 42.0, 52.0, 62.0, 72.0, 82.0])
         self.assertEqual(first["band_power"], {})
         self.assertEqual(first["erd"], {})
+        self.assertEqual(first["erd_conventional"], {})
         self.assertEqual(first["erd_status"], "waiting")
 
         self.assertIsNone(stream.build_payload())
@@ -94,25 +95,61 @@ class BrainAccessStreamPayloadTests(unittest.TestCase):
 
 
 class AlphaErdProcessorTests(unittest.TestCase):
-    def test_uses_30_second_fixed_baseline(self) -> None:
+    def test_uses_robust_baseline_and_bounded_smoothed_change(self) -> None:
         processor = _AlphaErdProcessor()
         processor.start_baseline()
         time_axis = np.arange(SAMPLING_RATE) / SAMPLING_RATE
         baseline_wave = np.sin(2.0 * np.pi * 10.0 * time_axis)
-        baseline = np.tile(baseline_wave, (len(CHANNELS), 1))
+        linear_drift = np.linspace(0.0, 100.0, SAMPLING_RATE)
 
-        for _ in range(ERD_BASELINE_SECONDS):
-            band_power, erd = processor.add_samples(baseline)
+        for index in range(ERD_BASELINE_SECONDS):
+            amplitude = 10.0 if index == 0 else 1.0
+            baseline = np.tile(
+                amplitude * baseline_wave + linear_drift,
+                (len(CHANNELS), 1),
+            )
+            band_power, erd, conventional = processor.add_samples(baseline)
             self.assertEqual(band_power, {})
             self.assertEqual(erd, {})
+            self.assertEqual(conventional, {})
 
         self.assertEqual(processor.status, "ready")
         self.assertEqual(processor.baseline_seconds, ERD_BASELINE_SECONDS)
 
-        band_power, erd = processor.add_samples(baseline * 0.5)
+        current = np.tile(
+            baseline_wave * 0.5 + linear_drift,
+            (len(CHANNELS), 1),
+        )
+        for _ in range(4):
+            band_power, erd, conventional = processor.add_samples(current)
+            self.assertEqual(band_power, {})
+            self.assertEqual(erd, {})
+            self.assertEqual(conventional, {})
+
+        band_power, erd, conventional = processor.add_samples(current)
 
         self.assertEqual(list(band_power), ["alpha"])
-        np.testing.assert_allclose(erd["alpha"], [75.0] * len(CHANNELS))
+        np.testing.assert_allclose(erd["alpha"], [60.0] * len(CHANNELS))
+        np.testing.assert_allclose(
+            conventional["alpha"],
+            [75.0] * len(CHANNELS),
+        )
+
+    def test_rejects_bad_windows_without_advancing_baseline(self) -> None:
+        processor = _AlphaErdProcessor()
+        processor.start_baseline()
+        time_axis = np.arange(SAMPLING_RATE) / SAMPLING_RATE
+        clipped = np.tile(
+            562_500.0 + np.sin(2.0 * np.pi * 10.0 * time_axis),
+            (len(CHANNELS), 1),
+        )
+
+        band_power, erd, conventional = processor.add_samples(clipped)
+
+        self.assertEqual(band_power, {})
+        self.assertEqual(erd, {})
+        self.assertEqual(conventional, {})
+        self.assertEqual(processor.baseline_seconds, 0)
 
 
 if __name__ == "__main__":

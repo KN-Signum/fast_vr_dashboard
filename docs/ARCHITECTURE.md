@@ -67,9 +67,10 @@ Windows DLLs. The current stream:
 - detects missing callbacks and lets the service reconnect.
 
 Alpha power and ERD use non-overlapping one-second windows in the 8-13 Hz band.
-Creating a session starts a fixed 30-second baseline, so connection transients
-are not used. ERD is emitted after that baseline is ready; `focus_index` remains
-`0.0`.
+Creating a session starts a baseline made from 30 accepted one-second windows.
+Clipped, flat, or otherwise implausible windows are excluded, so collecting the
+baseline can take longer than 30 wall-clock seconds. ERD is emitted after that
+baseline is ready; `focus_index` remains `0.0`.
 
 ### Session Storage
 
@@ -158,6 +159,9 @@ explicitly where practical.
   "data_uv": [12.6, 8.0, 2.0, 1.9, -1.0, -2.0, -3.0, -4.3],
   "band_power": {"alpha": [1.0, 1.1, 0.9, 1.2, 1.0, 0.8, 1.3, 1.4]},
   "erd": {"alpha": [2.0, -1.0, 4.0, 3.0, 1.0, 5.0, -2.0, 2.0]},
+  "erd_conventional": {
+    "alpha": [4.1, -2.0, 8.3, 6.2, 2.0, 10.5, -3.9, 4.1]
+  },
   "erd_status": "ready",
   "erd_baseline_seconds": 30,
   "erd_baseline_target_seconds": 30,
@@ -174,7 +178,25 @@ monotonic sample cursor within the current sensor connection, and
 `sample_count` is the number of values per channel in this message.
 Before a session, `erd_status` is `waiting`. During baseline collection it is
 `collecting`, the elapsed seconds increase to 30, and `band_power`/`erd` remain
-empty.
+empty. Only finite, non-flat, non-clipped windows below the artifact threshold
+advance the baseline. The baseline is the median of 30 accepted one-second
+windows. Current alpha power is the median of the latest five accepted windows.
+
+`erd.alpha` is the bounded normalized alpha-power change used by the dashboard:
+
+```text
+100 * (baseline - current) / (baseline + current)
+```
+
+It remains between `-100%` and `+100%`. `erd_conventional.alpha` preserves the
+standard, unbounded percentage:
+
+```text
+100 * (baseline - current) / baseline
+```
+
+Raw EEG remains unchanged regardless of whether a window is accepted for the
+alpha calculation.
 
 ### Eye-Tracking Message
 

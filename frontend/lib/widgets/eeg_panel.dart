@@ -194,7 +194,7 @@ class _ErdChart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'ERD alfa',
+            'Znormalizowana zmiana alfa',
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
@@ -203,13 +203,13 @@ class _ErdChart extends StatelessWidget {
                 ? Center(
                     child: Text(
                       status == 'collecting'
-                          ? 'Zbieranie linii bazowej ERD: '
+                          ? 'Zbieranie linii bazowej alfa: '
                                 '$baselineSeconds/$baselineTargetSeconds s'
                           : status == 'waiting'
-                          ? 'Linia bazowa ERD rozpocznie się z sesją'
+                          ? 'Linia bazowa alfa rozpocznie się z sesją'
                           : status == 'ready'
-                          ? 'ERD gotowe — oczekiwanie na dane'
-                          : 'Dane ERD nie są dostępne',
+                          ? 'Wskaźnik gotowy — oczekiwanie na dane'
+                          : 'Zmiana alfa nie jest dostępna',
                       style: TextStyle(
                         color: Colors.grey.shade500,
                         fontSize: 10,

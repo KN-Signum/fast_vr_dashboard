@@ -17,7 +17,11 @@ BIAS_CHANNELS = list(CHANNEL_MAP)
 SAMPLING_RATE = 250
 ERD_BASELINE_SECONDS = 30
 ERD_WINDOW_SECONDS = 1
+ERD_CURRENT_WINDOW_SECONDS = 5
 ALPHA_BAND_HZ = (8.0, 13.0)
+EEG_CLIPPING_THRESHOLD_UV = 562_499.0
+EEG_FLAT_RANGE_UV = 0.5
+ERD_MAX_DETRENDED_PEAK_UV = 5_000.0
 
 
 class _AlphaErdProcessor:
@@ -26,12 +30,14 @@ class _AlphaErdProcessor:
         self._pending = np.empty((len(CHANNELS), 0), dtype=float)
         self._baseline_windows: list[np.ndarray] = []
         self._baseline: np.ndarray | None = None
+        self._current_windows: list[np.ndarray] = []
         self._collecting = False
 
     def start_baseline(self) -> None:
         self._pending = np.empty((len(CHANNELS), 0), dtype=float)
         self._baseline_windows = []
         self._baseline = None
+        self._current_windows = []
         self._collecting = True
 
     @property
@@ -47,37 +53,86 @@ class _AlphaErdProcessor:
     def add_samples(
         self,
         samples: np.ndarray,
-    ) -> tuple[dict[str, list[float]], dict[str, list[float]]]:
+    ) -> tuple[
+        dict[str, list[float]],
+        dict[str, list[float]],
+        dict[str, list[float]],
+    ]:
         if self._baseline is None and not self._collecting:
-            return {}, {}
+            return {}, {}, {}
         self._pending = np.concatenate((self._pending, samples), axis=1)
         latest_power: np.ndarray | None = None
 
         while self._pending.shape[1] >= self._window_samples:
             window = self._pending[:, : self._window_samples]
             self._pending = self._pending[:, self._window_samples :]
-            power = self._alpha_power(window)
+            detrended = self._linear_detrend(window)
+            if not self._is_usable_window(window, detrended):
+                continue
+            power = self._alpha_power(detrended)
 
             if self._baseline is None:
                 self._baseline_windows.append(power)
                 if len(self._baseline_windows) == ERD_BASELINE_SECONDS:
-                    self._baseline = np.mean(self._baseline_windows, axis=0)
+                    self._baseline = np.median(self._baseline_windows, axis=0)
                     self._collecting = False
             else:
-                latest_power = power
+                self._current_windows.append(power)
+                if len(self._current_windows) > ERD_CURRENT_WINDOW_SECONDS:
+                    self._current_windows.pop(0)
+                if len(self._current_windows) == ERD_CURRENT_WINDOW_SECONDS:
+                    latest_power = np.median(self._current_windows, axis=0)
 
         if latest_power is None or self._baseline is None:
-            return {}, {}
+            return {}, {}, {}
 
-        safe_baseline = np.maximum(self._baseline, np.finfo(float).eps)
-        erd = (self._baseline - latest_power) / safe_baseline * 100.0
-        return {"alpha": latest_power.tolist()}, {"alpha": erd.tolist()}
+        epsilon = np.finfo(float).eps
+        normalized = (
+            (self._baseline - latest_power)
+            / (self._baseline + latest_power + epsilon)
+            * 100.0
+        )
+        conventional = (
+            (self._baseline - latest_power)
+            / np.maximum(self._baseline, epsilon)
+            * 100.0
+        )
+        return (
+            {"alpha": latest_power.tolist()},
+            {"alpha": normalized.tolist()},
+            {"alpha": conventional.tolist()},
+        )
 
-    def _alpha_power(self, samples: np.ndarray) -> np.ndarray:
-        centered = samples - np.mean(samples, axis=1, keepdims=True)
-        tapered = centered * np.hanning(samples.shape[1])
+    def _linear_detrend(self, samples: np.ndarray) -> np.ndarray:
+        positions = np.arange(samples.shape[1], dtype=float)
+        positions -= np.mean(positions)
+        denominator = np.sum(positions**2)
+        means = np.mean(samples, axis=1, keepdims=True)
+        slopes = np.sum((samples - means) * positions, axis=1) / denominator
+        return samples - means - slopes[:, np.newaxis] * positions
+
+    def _is_usable_window(
+        self,
+        raw: np.ndarray,
+        detrended: np.ndarray,
+    ) -> bool:
+        if not np.all(np.isfinite(raw)) or not np.all(np.isfinite(detrended)):
+            return False
+        if np.any(np.abs(raw) >= EEG_CLIPPING_THRESHOLD_UV):
+            return False
+        if np.any(np.ptp(raw, axis=1) < EEG_FLAT_RANGE_UV):
+            return False
+        return not np.any(
+            np.max(np.abs(detrended), axis=1) > ERD_MAX_DETRENDED_PEAK_UV
+        )
+
+    def _alpha_power(self, detrended: np.ndarray) -> np.ndarray:
+        tapered = detrended * np.hanning(detrended.shape[1])
         spectrum = np.abs(np.fft.rfft(tapered, axis=1)) ** 2
-        frequencies = np.fft.rfftfreq(samples.shape[1], d=1.0 / SAMPLING_RATE)
+        frequencies = np.fft.rfftfreq(
+            detrended.shape[1],
+            d=1.0 / SAMPLING_RATE,
+        )
         low, high = ALPHA_BAND_HZ
         band = (frequencies >= low) & (frequencies < high)
         return np.mean(spectrum[:, band], axis=1)
@@ -181,7 +236,9 @@ class BrainAccessStream:
             return None
 
         sample_count = eeg_uv.shape[1]
-        band_power, erd = self._erd_processor.add_samples(eeg_uv)
+        band_power, erd, erd_conventional = self._erd_processor.add_samples(
+            eeg_uv
+        )
         payload = EegPayload(
             sampling_rate=SAMPLING_RATE,
             channels=CHANNELS,
@@ -192,6 +249,7 @@ class BrainAccessStream:
             data_uv=eeg_uv[:, -1].tolist(),
             band_power=band_power,
             erd=erd,
+            erd_conventional=erd_conventional,
             erd_status=self._erd_processor.status,
             erd_baseline_seconds=self._erd_processor.baseline_seconds,
             erd_baseline_target_seconds=ERD_BASELINE_SECONDS,

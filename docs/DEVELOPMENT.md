@@ -233,9 +233,13 @@ Then inspect:
 - live frontend plots;
 - `eeg.ndjson` growing during an active session.
 
-The current implementation forwards raw values and calculates alpha ERD from a
-fixed 30-second baseline using one-second 8-13 Hz windows. Changes to this
-processing require explicit algorithms, units, windowing, validation, and tests.
+The current implementation forwards raw values unchanged. Alpha processing
+linearly detrends accepted one-second 8-13 Hz windows, uses the median of a
+30-second quality-gated baseline, and smooths current power with a five-window
+median. The dashboard receives a bounded normalized alpha-power change in
+`erd`; the conventional unbounded percentage remains available in
+`erd_conventional`. Changes to this processing require explicit algorithms,
+units, windowing, validation, and tests.
 
 ## Debugging
 

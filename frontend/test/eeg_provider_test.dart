@@ -24,6 +24,7 @@ Map<String, dynamic> _payload({
     'data_uv': channels.map((channel) => rawSignal[channel]!.last).toList(),
     'band_power': <String, dynamic>{},
     'erd': erd,
+    'erd_conventional': <String, dynamic>{},
     if (erdStatus != null) 'erd_status': erdStatus,
     if (erdBaselineSeconds != null) 'erd_baseline_seconds': erdBaselineSeconds,
     if (erdBaselineTargetSeconds != null)
@@ -183,8 +184,8 @@ void main() {
       ),
     );
 
-    expect(find.text('ERD alfa'), findsOneWidget);
-    expect(find.text('Dane ERD nie są dostępne'), findsOneWidget);
+    expect(find.text('Znormalizowana zmiana alfa'), findsOneWidget);
+    expect(find.text('Zmiana alfa nie jest dostępna'), findsOneWidget);
     expect(find.byType(FilterChip), findsNWidgets(2));
     expect(find.text('Fp1'), findsNWidgets(2));
 
@@ -196,7 +197,7 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
-  testWidgets('shows eight channel controls and populated alpha ERD', (
+  testWidgets('shows eight channel controls and normalized alpha change', (
     tester,
   ) async {
     final channels = List.generate(8, (index) => 'C$index');
@@ -224,8 +225,8 @@ void main() {
     );
 
     expect(find.byType(FilterChip), findsNWidgets(8));
-    expect(find.text('ERD alfa'), findsOneWidget);
-    expect(find.text('Dane ERD nie są dostępne'), findsNothing);
+    expect(find.text('Znormalizowana zmiana alfa'), findsOneWidget);
+    expect(find.text('Zmiana alfa nie jest dostępna'), findsNothing);
 
     await tester.pump(const Duration(seconds: 3));
   });
@@ -256,7 +257,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Zbieranie linii bazowej ERD: 12/30 s'), findsOneWidget);
+    expect(find.text('Zbieranie linii bazowej alfa: 12/30 s'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });
 
