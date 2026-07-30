@@ -129,6 +129,7 @@ class MockEegService(EegService):
 
 class BrainAccessEegService(EegService):
     _stale_timeout_seconds = 3.0
+    _retry_delay_seconds = 5.0
 
     def __init__(
         self,
@@ -142,35 +143,71 @@ class BrainAccessEegService(EegService):
         self._stream: BrainAccessStreamProtocol | None = None
 
     async def _run(self, manager: ConnectionManager) -> None:
-        stream = await asyncio.to_thread(self._stream_factory, self.device_name)
-        self._stream = stream
-        try:
-            logger.info("Connecting to BrainAccess EEG device %s", self.device_name)
-            await asyncio.to_thread(stream.start)
-            stale_since = monotonic()
-            logger.info("BrainAccess EEG acquisition started")
-
-            while not self._stop_event.is_set():
-                payload = await asyncio.to_thread(stream.build_payload)
-                if payload is None:
-                    if monotonic() - stale_since >= self._stale_timeout_seconds:
-                        raise RuntimeError(
-                            "BrainAccess sensor stopped delivering fresh EEG samples"
-                        )
-                else:
-                    stale_since = monotonic()
-                    if self.status != EegStatus.STREAMING:
-                        self.status = EegStatus.STREAMING
-                        logger.info("BrainAccess EEG stream started")
-                    await manager.broadcast_json(payload)
-                await self._wait_for_tick(1.0)
-        finally:
+        while not self._stop_event.is_set():
+            stream: BrainAccessStreamProtocol | None = None
+            failure: Exception | None = None
             try:
-                await asyncio.to_thread(stream.close)
-            except Exception:
-                logger.exception("Could not close the BrainAccess EEG stream")
-            self._stream = None
-            logger.info("BrainAccess EEG stream stopped")
+                stream = await asyncio.to_thread(
+                    self._stream_factory,
+                    self.device_name,
+                )
+                self._stream = stream
+                logger.info(
+                    "Connecting to BrainAccess EEG device %s",
+                    self.device_name,
+                )
+                await asyncio.to_thread(stream.start)
+                stale_since = monotonic()
+                logger.info("BrainAccess EEG acquisition started")
+
+                while not self._stop_event.is_set():
+                    payload = await asyncio.to_thread(stream.build_payload)
+                    if payload is None:
+                        if (
+                            monotonic() - stale_since
+                            >= self._stale_timeout_seconds
+                        ):
+                            raise RuntimeError(
+                                "BrainAccess sensor stopped delivering fresh EEG samples"
+                            )
+                    else:
+                        stale_since = monotonic()
+                        if self.status != EegStatus.STREAMING:
+                            self.status = EegStatus.STREAMING
+                            self.error = None
+                            logger.info("BrainAccess EEG stream started")
+                        await manager.broadcast_json(payload)
+                    await self._wait_for_tick(1.0)
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:
+                failure = error
+                logger.exception("BrainAccess EEG connection attempt failed")
+            finally:
+                if stream is not None:
+                    try:
+                        await asyncio.to_thread(stream.close)
+                    except Exception:
+                        logger.exception("Could not close the BrainAccess EEG stream")
+                self._stream = None
+                logger.info("BrainAccess EEG stream stopped")
+
+            if failure is None:
+                break
+
+            self.status = EegStatus.ERROR
+            self.error = str(failure)
+            if self._stop_event.is_set():
+                break
+
+            logger.info(
+                "Retrying BrainAccess EEG connection in %.0f seconds",
+                self._retry_delay_seconds,
+            )
+            await self._wait_for_tick(self._retry_delay_seconds)
+            if not self._stop_event.is_set():
+                self.status = EegStatus.CONNECTING
+                self.error = None
 
 
 def _create_brainaccess_stream(device_name: str) -> BrainAccessStreamProtocol:

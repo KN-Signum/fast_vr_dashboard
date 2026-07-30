@@ -159,6 +159,36 @@ class EegServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(stream.closed)
         await service.stop()
 
+    async def test_brainaccess_service_retries_after_connection_failure(self) -> None:
+        manager = FakeConnectionManager()
+        failed_stream = FakeBrainAccessStream(fail_on_start=True)
+        working_stream = FakeBrainAccessStream()
+        streams = iter([failed_stream, working_stream])
+        requested_devices: list[str] = []
+
+        def stream_factory(device_name: str):
+            requested_devices.append(device_name)
+            return next(streams)
+
+        service = BrainAccessEegService(
+            "BA MINI TEST",
+            stream_factory=stream_factory,
+        )
+        service._retry_delay_seconds = 0.0
+
+        with self.assertLogs("eeg_service", level="ERROR"):
+            await service.start(manager)
+            await asyncio.wait_for(manager.received.wait(), timeout=1.0)
+
+        self.assertEqual(requested_devices, ["BA MINI TEST", "BA MINI TEST"])
+        self.assertTrue(failed_stream.closed)
+        self.assertTrue(working_stream.started)
+        self.assertEqual(service.status, EegStatus.STREAMING)
+        self.assertIsNone(service.error)
+
+        await service.stop()
+        self.assertTrue(working_stream.closed)
+
     def test_factory_selects_service_without_loading_brainaccess(self) -> None:
         self.assertIsInstance(create_eeg_service("off", "device"), DisabledEegService)
         self.assertIsInstance(create_eeg_service("mock", "device"), MockEegService)
