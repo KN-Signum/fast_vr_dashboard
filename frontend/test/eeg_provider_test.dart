@@ -279,6 +279,5 @@ void main() {
       isNot(equals([562500, 562500, 562490, 562480])),
     );
     expect(provider.qualityForChannel('F4').clipping, isTrue);
-
   });
 }

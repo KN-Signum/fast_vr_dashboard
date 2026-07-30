@@ -167,9 +167,8 @@ class EegProvider with ChangeNotifier {
   List<double> samplesForChannel(String channel) =>
       List.unmodifiable(_channelSamples[channel] ?? const <double>[]);
 
-  List<double> displaySamplesForChannel(String channel) => List.unmodifiable(
-    _filteredChannelSamples[channel] ?? const <double>[],
-  );
+  List<double> displaySamplesForChannel(String channel) =>
+      List.unmodifiable(_filteredChannelSamples[channel] ?? const <double>[]);
 
   EegChannelQuality qualityForChannel(String channel) =>
       _channelQuality[channel] ?? const EegChannelQuality();
@@ -303,5 +302,4 @@ class EegProvider with ChangeNotifier {
       highAmplitude: filteredPeak > 5000,
     );
   }
-
 }
