@@ -194,7 +194,9 @@ class _ErdChartState extends State<_ErdChart> {
 
   @override
   Widget build(BuildContext context) {
-    final newest = widget.history.isEmpty ? null : widget.history.last.timestamp;
+    final newest = widget.history.isEmpty
+        ? null
+        : widget.history.last.timestamp;
     final lines = newest == null
         ? const <LineChartBarData>[]
         : widget.channels.indexed
