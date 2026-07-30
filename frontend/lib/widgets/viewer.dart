@@ -65,7 +65,7 @@ class Viewer extends StatelessWidget {
     final eyeTrackingProvider = context.watch<EyeTrackingProvider>();
 
     return AspectRatio(
-      aspectRatio: 16 / 9,
+      aspectRatio: 4 / 3,
       child: Container(
         margin: const EdgeInsets.all(24),
         decoration: BoxDecoration(
@@ -82,6 +82,7 @@ class Viewer extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
+          fit: StackFit.expand,
           children: [
             // Game preview image
             Image.memory(
@@ -90,18 +91,15 @@ class Viewer extends StatelessWidget {
               filterQuality:
                   FilterQuality.low, // Wyższa wydajność w przeglądarce
               fit: BoxFit.contain,
+              alignment: Alignment.center,
             ),
 
             // Eye tracking overlay
             LayoutBuilder(
               builder: (context, constraints) {
-                // Calculate actual preview size considering fit: contain
-                final previewWidth = constraints.maxWidth;
-                final previewHeight = constraints.maxHeight;
-
                 return EyeTrackingVisualizationLayer(
                   eyeTrackingProvider: eyeTrackingProvider,
-                  previewSize: Size(previewWidth, previewHeight),
+                  previewSize: constraints.biggest,
                 );
               },
             ),
