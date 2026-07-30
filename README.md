@@ -1,163 +1,200 @@
 # Panel VR
 
-Panel VR combines a FastAPI WebSocket server with a Flutter web dashboard for
-VR, eye-tracking, and BrainAccess EEG sessions.
+Panel VR is a local research dashboard for supervised VR sessions. It combines:
 
-## Development
+- a FastAPI HTTP and WebSocket server;
+- a Flutter web dashboard served by that server;
+- live VR image and eye-tracking data from a Unity headset client;
+- live raw EEG data from a BrainAccess MINI sensor;
+- server-owned session recording, observations, summaries, and raw-data exports;
+- a Windows x64 installer and portable package.
 
-Start the backend:
+The production application runs on the operator's Windows computer and opens the
+dashboard in a browser. The computer and headset communicate over the local
+network. The client does not need Python, Flutter, or a terminal.
+
+> Panel VR currently displays and records research signals. It is not a
+> validated medical device and does not calculate diagnostic EEG metrics.
+
+## Documentation
+
+- [System architecture](docs/ARCHITECTURE.md): components, data flow,
+  WebSocket messages, REST API, and storage.
+- [Development guide](docs/DEVELOPMENT.md): local setup, commands, tests, and
+  source layout.
+- [Windows deployment and operation](docs/DEPLOYMENT.md): release builds,
+  installation, hardware setup, acceptance checks, and troubleshooting.
+- [Backend reference](backend/README.md): backend-specific configuration and
+  commands.
+- [Frontend reference](frontend/README.md): Flutter structure, connection
+  behavior, and frontend checks.
+
+## Production Topology
+
+```text
+BrainAccess MINI
+       |
+       | Bluetooth Low Energy through BrainAccess USB adapter
+       v
++------------------------ Windows operator computer -------------------------+
+| PanelVR.exe                                                               |
+|   BrainAccess SDK -> EEG service ----+                                     |
+|                                      |                                     |
+|   FastAPI + WebSocket broker --------+----> Flutter dashboard in browser   |
+|        ^                             |          - session controls          |
+|        |                             +--------> - VR preview + ET overlay   |
+|        |                                        - raw EEG plots            |
+|        +---- UDP discovery + WebSocket ---- VR headset / Unity client      |
+|                                                                            |
+| Session database, NDJSON streams, exports, and logs in LOCALAPPDATA        |
++----------------------------------------------------------------------------+
+```
+
+The server listens on `0.0.0.0:8080`. The dashboard uses same-origin HTTP and
+`/ws?role=dashboard`. The Unity client discovers the server from a UDP beacon on
+port `15000` and connects to `/ws`, whose default role is `vr`.
+
+## Operator Workflow
+
+1. Connect the BrainAccess USB BLE adapter to the Windows computer.
+2. Start the BrainAccess MINI and make sure it is not charging.
+3. Put the operator computer and VR headset on the same private network.
+4. Start **Panel VR**. The dashboard opens at `http://127.0.0.1:8080`.
+5. Start the VR application. The headset should discover the server
+   automatically.
+6. On the setup screen, verify backend, EEG, VR, and ET activity.
+7. Enter the patient identifier, preferred hand, and optional notes, then create
+   the session.
+8. During the session, use the left-side controls, watch the VR/ET preview and
+   EEG plots, and report observed events below the timeline.
+9. End the session and download the JSON summary and raw-data ZIP.
+
+Only one session can be active at a time. If the application is stopped during a
+session, the backend marks that session as `interrupted` on the next startup and
+offers its recovered summary.
+
+## Hardware
+
+The tested EEG path is:
+
+- BrainAccess MINI, default advertised name `BA MINI 037`;
+- BrainAccess USB BLE adapter;
+- Windows x64;
+- Microsoft Visual C++ Redistributable x64 required by the BrainAccess DLLs.
+
+Use the supplied USB adapter for production sessions. The previously observed
+short or stalled streams disappeared after replacing an older integrated laptop
+Bluetooth adapter. When a computer has both adapters, disable the integrated
+Bluetooth adapter if device selection is inconsistent. Close BrainAccess Board
+before starting Panel VR because the sensor connection is exclusive.
+
+## Quick Development Start
+
+Requirements:
+
+- Python 3.13 and [uv](https://docs.astral.sh/uv/);
+- Flutter 3.41.2 or another compatible stable release;
+- Chrome or another Flutter-supported browser.
+
+Start the backend from one terminal:
 
 ```shell
 cd backend
+uv sync --all-groups
 uv run uvicorn main:app --host 0.0.0.0 --port 8080 --reload
 ```
 
-Start Flutter on a different port:
+Development mode uses mock EEG and mock eye tracking by default. Start Flutter
+from another terminal:
 
 ```shell
 cd frontend
+flutter pub get
 flutter run -d chrome --web-hostname 127.0.0.1 --web-port 5173
 ```
 
-The release dashboard derives its WebSocket address from the page URL and
-connects to same-origin `/ws`, including a custom FastAPI port. A debug build
-started with `flutter run` connects to `ws://127.0.0.1:8080/ws`.
+A Flutter debug build always calls the backend at `http://127.0.0.1:8080` and
+`ws://127.0.0.1:8080/ws?role=dashboard`.
 
-## Session recording
-
-FastAPI is the authoritative owner of sessions. The Flutter dashboard creates
-and ends sessions through `/api/sessions`, adds observed events through the
-session API, and uses WebSocket data only for the live view. The backend records
-EEG, eye-tracking, VR JSON messages, and VR frame metadata while a session is
-active.
-
-Session metadata and counts are stored in SQLite. Raw streams are appended to
-NDJSON files under the writable application data directory. Ending a session
-flushes pending records before the summary is returned. If the application
-stops with an active session, that session is marked as interrupted on the next
-startup, its counters are reconciled with the raw files, and it is shown in the
-dashboard summary.
-
-The summary download is JSON. The raw-data download is a ZIP containing the
-summary plus separate NDJSON files for EEG, eye tracking, VR events, VR frame
-metadata, and clinician observations.
-
-## Frontend release build
-
-The release version is stored in `VERSION`. The same version must be present in
-`frontend/pubspec.yaml` and `backend/pyproject.toml`; the verifier rejects a
-mismatch.
-
-On Windows, run the frontend gate, backend tests, PyInstaller build, package
-verification, and packaged-server smoke test:
-
-```powershell
-.\scripts\build_all.ps1
-```
-
-To build only the frontend:
-
-```powershell
-.\scripts\build_frontend.ps1
-```
-
-The build machine needs Flutter, Dart, Git, and uv on `PATH`. The delivered
-client package will not need those tools.
-
-The frontend build performs dependency resolution, formatting checks, static
-analysis, tests, and a release web compilation. It writes `build-info.json`
-with the app version, build number, Git commit, dirty-worktree flag, and UTC
-timestamp. It then replaces `backend/static/web` with an exact copy of
-`frontend/build/web`.
-
-The same pipeline can be run on macOS or Linux:
+Run the main checks:
 
 ```shell
-uv run --project backend python scripts/build_frontend.py
+cd backend
+uv run --group dev pytest
 ```
-
-Verify an existing generated and served bundle without rebuilding:
 
 ```shell
-uv run --project backend python scripts/verify_frontend_build.py
+cd frontend
+dart format --output=none --set-exit-if-changed lib test
+flutter analyze
+flutter test
 ```
 
-The verifier requires the two bundles to have identical file lists and SHA-256
-hashes, and checks the Flutter and build metadata versions. Generated files
-under `backend/static/web` remain tracked for now and must only be refreshed
-through this pipeline.
+See [the development guide](docs/DEVELOPMENT.md) for real-device modes,
+generated frontend assets, protocol changes, and packaging checks.
 
-## Backend package
+## Data and Privacy
 
-Build only the backend package on Windows:
+Session data is stored outside the installation directory:
 
-```powershell
-.\scripts\build_backend.ps1
+| Platform | Default directory |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\NEXT\PanelVR` |
+| macOS | `~/Library/Application Support/NEXT/PanelVR` |
+| Linux | `${XDG_DATA_HOME:-~/.local/share}/next/panelvr` |
+
+The directory contains:
+
+```text
+logs/panel-vr.log
+sessions.sqlite3
+sessions/<session_id>/session.json
+sessions/<session_id>/eeg.ndjson
+sessions/<session_id>/eye_tracking.ndjson
+sessions/<session_id>/vr_events.ndjson
+sessions/<session_id>/vr_frames.ndjson
+sessions/<session_id>/session_events.ndjson
+exports/
 ```
 
-The output is a one-directory package under `dist\PanelVR`. It contains the
-`PanelVR.exe` launcher, the Flutter bundle, Python runtime dependencies, and the
-BrainAccess native DLLs. Keep this directory intact; the executable is not
-standalone outside it.
+Patient identifiers and notes are stored unencrypted. Access control, backups,
+retention, secure transfer, and deletion are deployment responsibilities.
+Uninstalling the Windows application does not remove this data.
 
-The package build writes `package-manifest.json` with release metadata and the
-SHA-256 hash of every packaged file. It then starts the frozen application with
-mock EEG and eye tracking, checks `/api/health`, verifies that Flutter is
-served, and exercises session creation, completion, and both export formats.
-File verification and the smoke test can also be run independently:
+## Windows Release
 
-```powershell
-uv run --project backend --group package python scripts\verify_backend_package.py
-uv run --project backend --group package python scripts\smoke_test_package.py
-```
+The final build must be produced on Windows x64. The release pipeline compiles
+Flutter, tests both applications, freezes the backend with PyInstaller, performs
+a packaged-server smoke test, builds an Inno Setup installer, and creates a
+portable ZIP and SHA-256 checksums.
 
-PyInstaller builds are platform-specific. A macOS build validates packaging
-logic locally but cannot replace the final Windows x64 build or physical
-BrainAccess hardware test.
-
-## Windows client release
-
-The final Windows command builds and tests the frontend and backend, packages
-the server, compiles the installer, creates a portable ZIP, and publishes
-SHA-256 checksums:
+Local Windows build:
 
 ```powershell
 .\scripts\build_release.ps1 -ConfirmBrainAccessRedistribution
 ```
 
-Install Inno Setup 6.3 or newer on the build machine before running it. The
-command refuses to build from a dirty worktree unless `-AllowDirty` is
-explicitly supplied. The BrainAccess confirmation switch is mandatory because
-redistribution rights must be reviewed outside the codebase.
+GitHub Actions build:
 
-For Authenticode signing, install the Windows 10 SDK and provide the SHA-1
-certificate thumbprint:
+1. Open **Actions** in GitHub.
+2. Select **Build Windows Release**.
+3. Select **Run workflow** on the intended branch.
+4. Confirm BrainAccess redistribution and choose whether to sign the build.
+5. Download `PanelVR-<version>-windows-x64` from the completed run.
 
-```powershell
-.\scripts\build_release.ps1 `
-  -ConfirmBrainAccessRedistribution `
-  -CertificateThumbprint "CERTIFICATE_SHA1_THUMBPRINT"
-```
+BrainAccess DLL redistribution rights must be reviewed before every delivered
+release. Unsigned builds are suitable for controlled testing but may trigger
+Microsoft Defender SmartScreen. Full prerequisites and acceptance checks are in
+[the deployment guide](docs/DEPLOYMENT.md).
 
-Unsigned builds are supported for internal testing but may trigger Microsoft
-Defender SmartScreen. Final artifacts are written below `release\<version>`.
-Follow [WINDOWS_RELEASE_CHECKLIST.md](WINDOWS_RELEASE_CHECKLIST.md) for clean
-machine and hardware acceptance testing.
+## Versioning
 
-### GitHub Actions build
+The release version must match in:
 
-The Windows release can also be built on a GitHub-hosted Windows x64 runner.
-Open **Actions**, select **Build Windows Release**, and choose **Run workflow**.
-The BrainAccess redistribution confirmation must be selected for every run.
-The resulting installer, portable ZIP, checksums, and release manifest are
-available in the run's `PanelVR-<version>-windows-x64` artifact.
+- `VERSION`;
+- `backend/pyproject.toml`;
+- `frontend/pubspec.yaml` (before the `+` build number).
 
-Unsigned acceptance builds require no repository secrets. To enable production
-signing, configure these encrypted Actions secrets:
-
-- `WINDOWS_CODESIGN_PFX_BASE64`: Base64-encoded PFX file.
-- `WINDOWS_CODESIGN_PFX_PASSWORD`: Password for the PFX file.
-
-Then select **Sign the executable and installer** when starting the workflow.
-The certificate is imported into the temporary runner's user certificate store
-and removed after the build.
+Build scripts reject mismatches. Generated Flutter files in
+`backend/static/web` are tracked and must be refreshed with the repository build
+script rather than copied manually.

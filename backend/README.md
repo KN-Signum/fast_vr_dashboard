@@ -1,169 +1,118 @@
-## Development
+# Panel VR Backend
 
-Run the backend from this directory:
+The backend is the authoritative runtime for device streams and sessions. It
+hosts the compiled Flutter application, brokers WebSocket traffic between the
+dashboard and Unity, reads the BrainAccess EEG stream, advertises itself through
+UDP, persists session data, and exposes exports through REST.
 
-```shell
-uv run uvicorn main:app --host 0.0.0.0 --port 8080 --reload
-```
+Read [the architecture document](../docs/ARCHITECTURE.md) before changing
+protocol or persistence behavior.
 
-Development mode uses mock EEG and eye-tracking streams by default. The
-dashboard is served from `static/web`.
+## Run
 
-The served dashboard is generated from the Flutter project. From the repository
-root, refresh it with:
-
-```shell
-uv run --project backend python scripts/build_frontend.py
-```
-
-Do not copy individual Flutter artifacts into `static/web`; the build script
-uses an exact verified mirror so stale files are removed.
-
-## Runtime configuration
-
-The packaged launcher uses production defaults: real EEG, eye tracking from
-the VR client, the UDP beacon enabled, and automatic browser startup.
-
-Supported environment variables:
-
-- `VRDASH_ENV`: `development`, `production`, or `test`
-- `VRDASH_HOST`: server bind address, default `0.0.0.0`
-- `VRDASH_PORT`: HTTP, WebSocket, and advertised port, default `8080`
-- `VRDASH_EEG_MODE`: `real`, `mock`, or `off`
-- `VRDASH_EEG_DEVICE`: BrainAccess Bluetooth name, default `BA MINI 037`
-- `VRDASH_ET_MODE`: `vr`, `mock`, or `off`
-- `VRDASH_BEACON_ENABLED`: boolean
-- `VRDASH_OPEN_BROWSER`: boolean
-- `VRDASH_DATA_DIR`: writable application data directory
-- `VRDASH_STATIC_DIR`: compiled Flutter web directory
-- `VRDASH_LOG_LEVEL`: Python logging level
-- `VRDASH_VERSION`: release version shown by the health endpoint
-
-The runtime health endpoint is available at `GET /api/health`.
-
-## Session storage and API
-
-The backend owns the session lifecycle and recording buffers. Only one session
-can be active at a time. Incoming messages are assigned by WebSocket role:
-
-- `role=dashboard` identifies dashboard control messages, which are relayed but
-  are not stored as VR events.
-- `role=vr` identifies VR-origin JSON and binary frame messages.
-- Backend-generated `eeg_data` and `eye_tracking` messages are recorded before
-  they are broadcast.
-
-Records pass through a bounded asynchronous queue and are written in batches,
-so WebSocket broadcasts do not wait for disk I/O. A full queue is reported as
-`dropped_records` and through `session_recording_error` in `/api/health`.
-
-The data directory contains:
-
-```text
-sessions.sqlite3
-sessions/<session_id>/session.json
-sessions/<session_id>/eeg.ndjson
-sessions/<session_id>/eye_tracking.ndjson
-sessions/<session_id>/vr_events.ndjson
-sessions/<session_id>/vr_frames.ndjson
-sessions/<session_id>/session_events.ndjson
-exports/
-```
-
-On Windows the default root is
-`%LOCALAPPDATA%\NEXT\PanelVR`. Set `VRDASH_DATA_DIR` to override it. This
-directory contains client session data and must be included in backup and
-retention procedures.
-
-Session endpoints:
-
-- `POST /api/sessions`
-- `GET /api/sessions/active`
-- `GET /api/sessions/recovered`
-- `GET /api/sessions/{session_id}/summary`
-- `POST /api/sessions/{session_id}/events`
-- `POST /api/sessions/{session_id}/end`
-- `GET /api/sessions/{session_id}/download/summary`
-- `GET /api/sessions/{session_id}/download/raw`
-
-The raw endpoint returns a temporary ZIP with the summary and NDJSON streams.
-An active session is flushed before either download endpoint responds. On
-graceful shutdown, or after recovery from an unexpected stop, an unfinished
-session is finalized with status `interrupted`. Recovery recounts the raw
-stream files so the summary remains accurate if shutdown occurred between a
-file append and its SQLite counter update.
-
-## Launcher
-
-Run the production-style launcher from this directory:
-
-```shell
-uv run python launcher.py
-```
-
-Useful development options:
-
-```shell
-uv run python launcher.py --mock-eeg --mock-et
-uv run python launcher.py --no-browser
-uv run python launcher.py --eeg-device "BA MINI 037"
-```
-
-The launcher detects an existing Panel VR instance, reports port conflicts,
-opens the dashboard when the server is ready, and writes rotating logs below
-the application data directory.
-
-## BrainAccess EEG
-
-The real EEG service is loaded lazily and is supported by the vendored SDK on
-Windows x64. A missing sensor or Bluetooth error changes `eeg_status` to
-`error` without stopping the dashboard.
-
-Live samples are copied directly from the BrainAccess chunk callback. The
-absence of callback data is used to detect a stalled stream. Real-device
-payloads contain raw microvolt channel values; band-power, ERD/ERS, and focus
-metrics remain empty until validated processing is implemented.
-
-Run the hardware diagnostic on the target Windows computer before packaging:
-
-```shell
-uv run python eeg_diagnostic.py --device "BA MINI 037" --duration 10
-```
-
-The target computer needs the Microsoft Visual C++ x64 runtime required by
-`bacore.dll` and `simpleble.dll`. Confirm that the BrainAccess SDK licence
-permits redistribution of these DLLs before delivering the installer.
-
-## Tests
-
-Run the backend test suite with:
-
-```shell
-uv run python -m unittest discover -s tests -v
-```
-
-Install all development and packaging dependencies with:
+Install dependencies:
 
 ```shell
 uv sync --all-groups
 ```
 
-## PyInstaller package
-
-From the repository root, build the one-directory backend package with:
+Run the development server with default mock EEG and ET:
 
 ```shell
-uv run --project backend --group package python scripts/build_backend.py
+uv run uvicorn main:app --host 0.0.0.0 --port 8080 --reload
 ```
 
-The specification is `panel_vr.spec`. It includes the compiled Flutter
-dashboard, MNE's lazy-loaded modules, and the BrainAccess DLL directory. The
-build is rejected if the embedded frontend differs from `static/web`, native
-DLLs are absent, package hashes differ, or the frozen server does not pass its
-mock-mode health check.
+Run the production-style launcher:
 
-The final client package must be built and tested on Windows x64. PyInstaller
-does not cross-compile Windows executables from macOS or Linux.
+```shell
+uv run python launcher.py
+```
 
-The repository-level `scripts/build_release.ps1` command wraps this package in
-an Inno Setup installer, adds the firewall rule required by the VR client,
-produces a portable ZIP, and writes release checksums.
+Useful launcher options:
+
+```shell
+uv run python launcher.py --mock-eeg --mock-et
+uv run python launcher.py --no-browser
+uv run python launcher.py --port 8081
+uv run python launcher.py --eeg-device "BA MINI 037"
+uv run python launcher.py --data-dir ./local-data
+```
+
+The launcher detects another Panel VR instance, rejects an unrelated port
+conflict, opens the browser after the health endpoint responds, and configures
+rotating file logs.
+
+## Runtime Configuration
+
+Production defaults are real EEG, ET from the VR client, an enabled discovery
+beacon, and automatic browser opening. Development defaults use mock EEG and ET.
+
+| Variable | Values/default |
+| --- | --- |
+| `VRDASH_ENV` | `development`, `production`, or `test` |
+| `VRDASH_HOST` | Bind address; default `0.0.0.0` |
+| `VRDASH_PORT` | HTTP, WebSocket, and advertised port; default `8080` |
+| `VRDASH_EEG_MODE` | `real`, `mock`, or `off` |
+| `VRDASH_EEG_DEVICE` | Sensor BLE name; default `BA MINI 037` |
+| `VRDASH_ET_MODE` | `vr`, `mock`, or `off` |
+| `VRDASH_BEACON_ENABLED` | Boolean; production default `true` |
+| `VRDASH_OPEN_BROWSER` | Boolean; production default `true` |
+| `VRDASH_DATA_DIR` | Writable database, sessions, exports, and logs root |
+| `VRDASH_STATIC_DIR` | Compiled Flutter web directory |
+| `VRDASH_LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` |
+| `VRDASH_VERSION` | Version exposed by `/api/health` |
+| `BEACON_HOST` | Optional LAN address advertised instead of auto-detection |
+
+Example real-device development run:
+
+```shell
+VRDASH_EEG_MODE=real \
+VRDASH_ET_MODE=vr \
+uv run uvicorn main:app --host 0.0.0.0 --port 8080
+```
+
+## Health and Diagnostics
+
+`GET /api/health` reports configuration, EEG state/error, ET state/error,
+beacon state, active session ID, and any persistence queue error.
+
+Run the direct BrainAccess diagnostic on the target Windows computer:
+
+```shell
+uv run python eeg_diagnostic.py --device "BA MINI 037" --duration 10
+```
+
+Use the BrainAccess USB BLE adapter for the supported deployment. Close
+BrainAccess Board first; only one process can own the sensor.
+
+Logs are written to `logs/panel-vr.log` inside the application data directory.
+The active file is limited to 5 MiB and five rotated backups are retained.
+
+## Tests
+
+```shell
+uv run --group dev pytest
+```
+
+The suite covers configuration, paths, logging, EEG service/stream behavior,
+session persistence/recovery, API endpoints, and WebSocket recording.
+
+## Packaging
+
+From the repository root:
+
+```powershell
+.\scripts\build_backend.ps1
+```
+
+The one-directory result is `dist\PanelVR`. `PanelVR.exe` depends on the
+adjacent files and must not be moved out of that directory.
+
+The PyInstaller specification is `panel_vr.spec`. It includes the compiled
+Flutter bundle, Python dependencies, and BrainAccess native DLLs. Package
+verification checks file hashes and architecture, and the smoke test runs the
+frozen server in mock mode and exercises health, static files, sessions, and
+exports.
+
+See [Windows deployment](../docs/DEPLOYMENT.md) for the complete release
+pipeline.
