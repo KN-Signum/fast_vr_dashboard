@@ -66,7 +66,7 @@ class EegPanel extends StatelessWidget {
             _ChannelSelector(channels: channels, eeg: eeg),
             _ErdChart(
               history: eeg.alphaErdHistory,
-              channels: visibleChannels,
+              channels: channels,
               status: latest.erdStatus,
               baselineSeconds: latest.erdBaselineSeconds,
               baselineTargetSeconds: latest.erdBaselineTargetSeconds,
@@ -126,7 +126,7 @@ class _ChannelSelector extends StatelessWidget {
   }
 }
 
-class _ErdChart extends StatelessWidget {
+class _ErdChart extends StatefulWidget {
   static const _colors = [
     Colors.blue,
     Colors.red,
@@ -153,14 +153,55 @@ class _ErdChart extends StatelessWidget {
   });
 
   @override
+  State<_ErdChart> createState() => _ErdChartState();
+}
+
+class _ErdChartState extends State<_ErdChart> {
+  late Set<String> _activeChannels = _defaultChannels(widget.channels);
+
+  Set<String> _defaultChannels(List<String> channels) {
+    final centralChannels = channels
+        .where((channel) => channel == 'C3' || channel == 'C4')
+        .toSet();
+    return centralChannels.isNotEmpty
+        ? centralChannels
+        : channels.take(2).toSet();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ErdChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_sameChannels(oldWidget.channels, widget.channels)) {
+      _activeChannels = _defaultChannels(widget.channels);
+    }
+  }
+
+  bool _sameChannels(List<String> left, List<String> right) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index++) {
+      if (left[index] != right[index]) return false;
+    }
+    return true;
+  }
+
+  void _toggleChannel(String channel) {
+    setState(() {
+      if (!_activeChannels.add(channel)) {
+        _activeChannels.remove(channel);
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final newest = history.isEmpty ? null : history.last.timestamp;
+    final newest = widget.history.isEmpty ? null : widget.history.last.timestamp;
     final lines = newest == null
         ? const <LineChartBarData>[]
-        : channels.indexed
+        : widget.channels.indexed
+              .where((entry) => _activeChannels.contains(entry.$2))
               .map((entry) {
                 final (index, channel) = entry;
-                final spots = history
+                final spots = widget.history
                     .where((point) => point.values.containsKey(channel))
                     .map(
                       (point) => FlSpot(
@@ -173,7 +214,7 @@ class _ErdChart extends StatelessWidget {
                 return LineChartBarData(
                   spots: spots,
                   isCurved: false,
-                  color: _colors[index % _colors.length],
+                  color: _ErdChart._colors[index % _ErdChart._colors.length],
                   barWidth: 1.5,
                   dotData: const FlDotData(show: false),
                 );
@@ -182,7 +223,7 @@ class _ErdChart extends StatelessWidget {
               .toList(growable: false);
 
     return Container(
-      height: 170,
+      height: 215,
       margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
       padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
       decoration: BoxDecoration(
@@ -198,16 +239,27 @@ class _ErdChart extends StatelessWidget {
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
+          Wrap(
+            spacing: 4,
+            runSpacing: 3,
+            children: widget.channels.indexed
+                .map((entry) => _legendItem(entry.$1, entry.$2))
+                .toList(growable: false),
+          ),
+          const SizedBox(height: 6),
           Expanded(
             child: lines.isEmpty
                 ? Center(
                     child: Text(
-                      status == 'collecting'
+                      widget.history.isNotEmpty && _activeChannels.isEmpty
+                          ? 'Wybierz kanał na legendzie'
+                          : widget.status == 'collecting'
                           ? 'Zbieranie linii bazowej alfa: '
-                                '$baselineSeconds/$baselineTargetSeconds s'
-                          : status == 'waiting'
+                                '${widget.baselineSeconds}/'
+                                '${widget.baselineTargetSeconds} s'
+                          : widget.status == 'waiting'
                           ? 'Linia bazowa alfa rozpocznie się z sesją'
-                          : status == 'ready'
+                          : widget.status == 'ready'
                           ? 'Wskaźnik gotowy — oczekiwanie na dane'
                           : 'Zmiana alfa nie jest dostępna',
                       style: TextStyle(
@@ -219,6 +271,53 @@ class _ErdChart extends StatelessWidget {
                 : LineChart(_erdChartData(lines), duration: Duration.zero),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _legendItem(int index, String channel) {
+    final color = _ErdChart._colors[index % _ErdChart._colors.length];
+    final active = _activeChannels.contains(channel);
+
+    return Semantics(
+      button: true,
+      selected: active,
+      label: 'Kanał $channel',
+      child: InkWell(
+        key: ValueKey('erd-legend-$channel'),
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _toggleChannel(channel),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                key: ValueKey(
+                  'erd-legend-marker-$channel-${active ? 'active' : 'inactive'}',
+                ),
+                width: 11,
+                height: 11,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: active ? color : Colors.transparent,
+                  border: Border.all(
+                    color: active ? color : Colors.grey.shade400,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 3),
+              Text(
+                channel,
+                style: TextStyle(
+                  color: active ? Colors.black87 : Colors.grey.shade500,
+                  fontSize: 9,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -187,11 +187,11 @@ void main() {
     expect(find.text('Znormalizowana zmiana alfa'), findsOneWidget);
     expect(find.text('Zmiana alfa nie jest dostępna'), findsOneWidget);
     expect(find.byType(FilterChip), findsNWidgets(2));
-    expect(find.text('Fp1'), findsNWidgets(2));
+    expect(find.text('Fp1'), findsNWidgets(3));
 
     await tester.tap(find.widgetWithText(FilterChip, 'Fp1'));
     await tester.pump();
-    expect(find.text('Fp1'), findsOneWidget);
+    expect(find.text('Fp1'), findsNWidgets(2));
     expect(provider.samplesForChannel('Fp1'), [1, 2, 3]);
 
     await tester.pump(const Duration(seconds: 3));
@@ -227,6 +227,28 @@ void main() {
     expect(find.byType(FilterChip), findsNWidgets(8));
     expect(find.text('Znormalizowana zmiana alfa'), findsOneWidget);
     expect(find.text('Zmiana alfa nie jest dostępna'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('erd-legend-marker-C3-active')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('erd-legend-marker-C0-inactive')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('erd-legend-C3')));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('erd-legend-marker-C3-inactive')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('erd-legend-C0')));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('erd-legend-marker-C0-active')),
+      findsOneWidget,
+    );
 
     await tester.pump(const Duration(seconds: 3));
   });
