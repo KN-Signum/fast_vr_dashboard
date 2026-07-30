@@ -45,6 +45,9 @@ def main() -> int:
         stream.start()
         while time.monotonic() < deadline:
             payload = stream.build_payload()
+            if payload is None:
+                time.sleep(0.1)
+                continue
             channels = payload.get("channels", [])
             raw_signal = payload.get("raw_signal", {})
             if not channels or not raw_signal:
@@ -56,6 +59,10 @@ def main() -> int:
         return 1
     finally:
         stream.close()
+
+    if payload_count == 0:
+        print("EEG diagnostic failed: no fresh samples received.", file=sys.stderr)
+        return 1
 
     print(f"EEG diagnostic passed with {payload_count} payloads.")
     return 0

@@ -1,7 +1,7 @@
 {
-  "app_version": "0.1.0",
-  "build_number": "1",
-  "built_at_utc": "2026-07-25T13:46:54.236058Z",
-  "git_commit": "2599388708e5fe84127b5acefe6da9a487adfb7b",
+  "app_version": "0.1.1",
+  "build_number": "2",
+  "built_at_utc": "2026-07-30T07:38:28.406556Z",
+  "git_commit": "4190db0eb1a4799ad49fbba22c8d3fa297d734b4",
   "git_dirty": true
 }

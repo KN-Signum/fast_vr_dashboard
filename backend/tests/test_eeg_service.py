@@ -41,6 +41,11 @@ class FakeBrainAccessStream:
         self.closed = True
 
 
+class StaleBrainAccessStream(FakeBrainAccessStream):
+    def build_payload(self) -> None:
+        return None
+
+
 async def _wait_for_status(
     service,
     expected: EegStatus,
@@ -132,6 +137,27 @@ class EegServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(stream.closed)
         await service.stop()
         self.assertEqual(service.status, EegStatus.ERROR)
+
+    async def test_brainaccess_stale_stream_sets_error_state(self) -> None:
+        manager = FakeConnectionManager()
+        stream = StaleBrainAccessStream()
+        service = BrainAccessEegService(
+            "BA MINI TEST",
+            stream_factory=lambda _: stream,
+        )
+        service._stale_timeout_seconds = 0.0
+
+        with self.assertLogs("eeg_service", level="ERROR"):
+            await service.start(manager)
+            await _wait_for_status(service, EegStatus.ERROR)
+
+        self.assertEqual(
+            service.error,
+            "BrainAccess sensor stopped delivering fresh EEG samples",
+        )
+        self.assertEqual(manager.payloads, [])
+        self.assertTrue(stream.closed)
+        await service.stop()
 
     def test_factory_selects_service_without_loading_brainaccess(self) -> None:
         self.assertIsInstance(create_eeg_service("off", "device"), DisabledEegService)

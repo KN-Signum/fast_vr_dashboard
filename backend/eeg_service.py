@@ -4,6 +4,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from enum import StrEnum
+from time import monotonic
 from typing import Callable, Protocol
 
 from connection_manager import ConnectionManager
@@ -22,7 +23,7 @@ class EegStatus(StrEnum):
 class BrainAccessStreamProtocol(Protocol):
     def start(self) -> None: ...
 
-    def build_payload(self) -> dict: ...
+    def build_payload(self) -> dict | None: ...
 
     def close(self) -> None: ...
 
@@ -127,6 +128,8 @@ class MockEegService(EegService):
 
 
 class BrainAccessEegService(EegService):
+    _stale_timeout_seconds = 3.0
+
     def __init__(
         self,
         device_name: str,
@@ -144,18 +147,21 @@ class BrainAccessEegService(EegService):
         try:
             logger.info("Connecting to BrainAccess EEG device %s", self.device_name)
             await asyncio.to_thread(stream.start)
-            self.status = EegStatus.STREAMING
-            logger.info("BrainAccess EEG stream started")
+            stale_since = monotonic()
+            logger.info("BrainAccess EEG acquisition started")
 
             while not self._stop_event.is_set():
-                try:
-                    payload = await asyncio.to_thread(stream.build_payload)
-                except Exception:
-                    logger.warning(
-                        "Could not build a BrainAccess EEG payload",
-                        exc_info=True,
-                    )
+                payload = await asyncio.to_thread(stream.build_payload)
+                if payload is None:
+                    if monotonic() - stale_since >= self._stale_timeout_seconds:
+                        raise RuntimeError(
+                            "BrainAccess sensor stopped delivering fresh EEG samples"
+                        )
                 else:
+                    stale_since = monotonic()
+                    if self.status != EegStatus.STREAMING:
+                        self.status = EegStatus.STREAMING
+                        logger.info("BrainAccess EEG stream started")
                     await manager.broadcast_json(payload)
                 await self._wait_for_tick(1.0)
         finally:

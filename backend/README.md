@@ -118,6 +118,12 @@ The real EEG service is loaded lazily and is supported by the vendored SDK on
 Windows x64. A missing sensor or Bluetooth error changes `eeg_status` to
 `error` without stopping the dashboard.
 
+Live samples are copied directly from the BrainAccess chunk callback. The
+sensor sample-number channel is used to discard overlapping data and detect a
+stalled stream. Real-device payloads contain raw microvolt channel values;
+band-power, ERD/ERS, and focus metrics remain empty until validated processing
+is implemented.
+
 Run the hardware diagnostic on the target Windows computer before packaging:
 
 ```shell
