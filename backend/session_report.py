@@ -335,8 +335,13 @@ def _counts_table(
     counts = summary.get("counts")
     if not isinstance(counts, dict):
         counts = {}
+    eeg_value = (
+        _format_count(counts.get("eeg_records", 0))
+        if summary.get("eeg_enabled_at_start", True)
+        else "Wyłączone przez operatora"
+    )
     entries = [
-        ("Pakiety EEG", counts.get("eeg_records", 0)),
+        ("Pakiety EEG", eeg_value),
         ("Próbki śledzenia wzroku", counts.get("eye_tracking_records", 0)),
         ("Zdarzenia VR", counts.get("vr_events", 0)),
         ("Klatki VR", counts.get("vr_frames", 0)),
@@ -351,7 +356,10 @@ def _counts_table(
         data.append(
             [
                 Paragraph(escape(label), label_style),
-                Paragraph(_format_count(value), value_style),
+                Paragraph(
+                    value if isinstance(value, str) else _format_count(value),
+                    value_style,
+                ),
             ]
         )
     table = Table(data, colWidths=[137 * mm, 37 * mm])

@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class EegStatus(StrEnum):
+    DISABLED = "disabled"
     DISCONNECTED = "disconnected"
     CONNECTING = "connecting"
     STREAMING = "streaming"
@@ -34,14 +35,21 @@ BrainAccessStreamFactory = Callable[[str], BrainAccessStreamProtocol]
 
 
 class EegService(ABC):
-    def __init__(self, mode: str) -> None:
+    def __init__(self, mode: str, *, enabled: bool = True) -> None:
         self.mode = mode
-        self.status = EegStatus.DISCONNECTED
+        self.enabled = enabled
+        self.status = (
+            EegStatus.DISCONNECTED if enabled else EegStatus.DISABLED
+        )
         self.error: str | None = None
         self._task: asyncio.Task | None = None
         self._stop_event = asyncio.Event()
 
     async def start(self, manager: ConnectionManager) -> None:
+        if not self.enabled:
+            self.status = EegStatus.DISABLED
+            self.error = None
+            return
         if self._task is not None and not self._task.done():
             return
 
@@ -57,8 +65,8 @@ class EegService(ABC):
     async def stop(self) -> None:
         task = self._task
         if task is None:
-            if self.status != EegStatus.ERROR:
-                self.status = EegStatus.DISCONNECTED
+            if self.status != EegStatus.ERROR or not self.enabled:
+                self.status = self._idle_status
             return
 
         self._stop_event.set()
@@ -71,8 +79,30 @@ class EegService(ABC):
                 await asyncio.gather(task, return_exceptions=True)
 
         self._task = None
-        if self.status != EegStatus.ERROR:
-            self.status = EegStatus.DISCONNECTED
+        if self.status != EegStatus.ERROR or not self.enabled:
+            self.status = self._idle_status
+
+    async def set_enabled(
+        self,
+        enabled: bool,
+        manager: ConnectionManager,
+    ) -> None:
+        if enabled == self.enabled:
+            return
+        if enabled and self.mode == "off":
+            raise RuntimeError("EEG jest wyłączone w konfiguracji serwera")
+
+        self.enabled = enabled
+        if enabled:
+            await self.start(manager)
+        else:
+            await self.stop()
+            self.error = None
+            self.status = EegStatus.DISABLED
+
+    @property
+    def _idle_status(self) -> EegStatus:
+        return EegStatus.DISCONNECTED if self.enabled else EegStatus.DISABLED
 
     async def start_erd_baseline(self) -> None:
         return
@@ -103,10 +133,10 @@ class EegService(ABC):
 
 class DisabledEegService(EegService):
     def __init__(self) -> None:
-        super().__init__("off")
+        super().__init__("off", enabled=False)
 
     async def start(self, manager: ConnectionManager) -> None:
-        self.status = EegStatus.DISCONNECTED
+        self.status = EegStatus.DISABLED
         self.error = None
 
     async def _run(self, manager: ConnectionManager) -> None:

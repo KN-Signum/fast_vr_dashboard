@@ -77,14 +77,15 @@ class EegServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(second["sample_start"], 250)
         self.assertEqual(second["sample_count"], 250)
 
-    async def test_disabled_service_stays_disconnected(self) -> None:
+    async def test_disabled_service_stays_disabled(self) -> None:
         manager = FakeConnectionManager()
         service = DisabledEegService()
 
         await service.start(manager)
         await service.stop()
 
-        self.assertEqual(service.status, EegStatus.DISCONNECTED)
+        self.assertFalse(service.enabled)
+        self.assertEqual(service.status, EegStatus.DISABLED)
         self.assertEqual(manager.payloads, [])
 
     async def test_mock_service_broadcasts_and_stops(self) -> None:
@@ -100,6 +101,28 @@ class EegServiceTests(unittest.IsolatedAsyncioTestCase):
 
         await service.stop()
         self.assertEqual(service.status, EegStatus.DISCONNECTED)
+
+    async def test_mock_service_can_be_disabled_and_enabled_again(self) -> None:
+        manager = FakeConnectionManager()
+        service = MockEegService()
+
+        await service.start(manager)
+        await asyncio.wait_for(manager.received.wait(), timeout=2.0)
+        await service.set_enabled(False, manager)
+        payload_count = len(manager.payloads)
+        await asyncio.sleep(0.05)
+
+        self.assertFalse(service.enabled)
+        self.assertEqual(service.status, EegStatus.DISABLED)
+        self.assertEqual(len(manager.payloads), payload_count)
+
+        manager.received.clear()
+        await service.set_enabled(True, manager)
+        await asyncio.wait_for(manager.received.wait(), timeout=2.0)
+
+        self.assertTrue(service.enabled)
+        self.assertEqual(service.status, EegStatus.STREAMING)
+        await service.stop()
 
     async def test_brainaccess_service_uses_device_and_closes_stream(self) -> None:
         manager = FakeConnectionManager()

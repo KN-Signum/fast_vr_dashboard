@@ -65,6 +65,7 @@ class SessionRepository:
                     patient_id TEXT NOT NULL,
                     preferred_hand TEXT NOT NULL,
                     notes TEXT NOT NULL,
+                    eeg_enabled_at_start INTEGER NOT NULL DEFAULT 1,
                     status TEXT NOT NULL,
                     started_at TEXT NOT NULL,
                     ended_at TEXT,
@@ -111,6 +112,13 @@ class SessionRepository:
                     ADD COLUMN recovery_pending INTEGER NOT NULL DEFAULT 0
                     """
                 )
+            if "eeg_enabled_at_start" not in columns:
+                connection.execute(
+                    """
+                    ALTER TABLE sessions
+                    ADD COLUMN eeg_enabled_at_start INTEGER NOT NULL DEFAULT 1
+                    """
+                )
 
     def create_session(
         self,
@@ -118,6 +126,7 @@ class SessionRepository:
         patient_id: str,
         preferred_hand: str,
         notes: str,
+        eeg_enabled_at_start: bool = True,
     ) -> dict[str, Any]:
         now = utc_now()
         session_id = str(uuid.uuid4())
@@ -139,15 +148,17 @@ class SessionRepository:
                 connection.execute(
                     """
                     INSERT INTO sessions (
-                        id, patient_id, preferred_hand, notes, status,
+                        id, patient_id, preferred_hand, notes,
+                        eeg_enabled_at_start, status,
                         started_at, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, 'active', ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)
                     """,
                     (
                         session_id,
                         patient_id,
                         preferred_hand,
                         notes,
+                        int(eeg_enabled_at_start),
                         timestamp,
                         timestamp,
                         timestamp,
@@ -467,6 +478,7 @@ class SessionRepository:
             "patient_id": session["patient_id"],
             "preferred_hand": session["preferred_hand"],
             "notes": session["notes"],
+            "eeg_enabled_at_start": bool(session["eeg_enabled_at_start"]),
             "status": session["status"],
             "started_at": session["started_at"],
             "ended_at": session["ended_at"],

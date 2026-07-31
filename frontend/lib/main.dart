@@ -5,9 +5,11 @@ import 'providers/game_provider.dart';
 import 'providers/web_socket_provider.dart';
 import 'providers/eye_tracking_provider.dart';
 import 'providers/eeg_provider.dart';
+import 'providers/eeg_control_provider.dart';
 import 'providers/session_provider.dart';
 import 'screens/app_shell.dart';
 import 'services/session_api.dart';
+import 'services/eeg_control_api.dart';
 import 'theme/app_style.dart';
 import 'utils/backend_url.dart';
 
@@ -24,6 +26,16 @@ class ViewerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => GameProvider()),
         ChangeNotifierProvider(create: (_) => EyeTrackingProvider()),
         ChangeNotifierProvider(create: (_) => EegProvider()),
+        ChangeNotifierProvider(
+          create: (_) => EegControlProvider(
+            api: HttpEegControlApi(
+              baseUri: resolveBackendHttpBase(
+                Uri.base,
+                useDevelopmentBackend: kDebugMode,
+              ),
+            ),
+          ),
+        ),
         ChangeNotifierProvider(
           create: (_) => SessionProvider(
             api: HttpSessionApi(

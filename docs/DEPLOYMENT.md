@@ -174,6 +174,11 @@ The setup screen indicators mean:
 These are live-activity indicators, not only hardware pairing indicators. A
 steady sensor LED without fresh EEG values is not enough.
 
+The EEG row also contains a switch. Turn it off before creating a session when
+EEG is intentionally not used. The backend then stops acquisition, device
+discovery, and five-second reconnect attempts. Turn it on to start discovery
+again. The setting is locked for the duration of an active session.
+
 ## Acceptance Test
 
 Perform this on the actual client laptop, sensor, adapter, network, and headset.

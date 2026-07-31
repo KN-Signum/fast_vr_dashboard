@@ -27,6 +27,7 @@ class SessionServiceTests(unittest.IsolatedAsyncioTestCase):
             patient_id="patient-001",
             preferred_hand="left",
             notes="",
+            eeg_enabled_at_start=False,
         )
         session_id = created["session_id"]
 
@@ -61,6 +62,7 @@ class SessionServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(summary["counts"]["vr_events"], 1)
         self.assertEqual(summary["counts"]["vr_frames"], 1)
         self.assertEqual(summary["counts"]["session_events"], 1)
+        self.assertFalse(summary["eeg_enabled_at_start"])
         self.assertIsNone(self.service.active_session_id)
 
 

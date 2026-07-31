@@ -54,6 +54,10 @@ class SessionEventRequest(BaseModel):
     note: str = Field(default="", max_length=4_000)
 
 
+class EegControlRequest(BaseModel):
+    enabled: bool
+
+
 class ResponseHeadersMiddleware(BaseHTTPMiddleware):
     _NO_CACHE_PATHS = {
         "/",
@@ -160,6 +164,16 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         json_observer=session_service.record_json,
         binary_observer=session_service.record_binary,
     )
+    eeg_control_lock = asyncio.Lock()
+
+    def eeg_runtime_state() -> dict:
+        return {
+            "eeg_enabled": eeg_service.enabled,
+            "eeg_mode": resolved_settings.eeg_mode,
+            "eeg_device_name": resolved_settings.eeg_device_name,
+            "eeg_status": eeg_service.status.value,
+            "eeg_error": eeg_service.error,
+        }
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -243,10 +257,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             "application": "panel-vr",
             "version": resolved_settings.app_version,
             "environment": resolved_settings.environment,
-            "eeg_mode": resolved_settings.eeg_mode,
-            "eeg_device_name": resolved_settings.eeg_device_name,
-            "eeg_status": eeg_service.status.value,
-            "eeg_error": eeg_service.error,
+            **eeg_runtime_state(),
             "et_mode": resolved_settings.et_mode,
             "et_status": runtime.et_status,
             "et_error": runtime.et_error,
@@ -255,25 +266,42 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             "session_recording_error": session_service.error,
         }
 
+    @app.put("/api/eeg")
+    async def set_eeg_enabled(request: EegControlRequest) -> dict:
+        async with eeg_control_lock:
+            if session_service.active_session_id is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Nie można zmienić ustawienia EEG podczas aktywnej sesji",
+                )
+            try:
+                await eeg_service.set_enabled(request.enabled, manager)
+            except RuntimeError as error:
+                raise HTTPException(status_code=409, detail=str(error)) from error
+            return eeg_runtime_state()
+
     @app.post("/api/sessions", status_code=201)
     async def create_session(request: SessionCreateRequest) -> dict:
         patient_id = request.patient_id.strip()
         if not patient_id:
             raise HTTPException(status_code=422, detail="ID pacjenta jest wymagane")
         try:
-            created = await session_service.create_session(
-                patient_id=patient_id,
-                preferred_hand=request.preferred_hand,
-                notes=request.notes.strip(),
-            )
-            try:
-                await eeg_service.start_erd_baseline()
-            except Exception:
-                logger.warning(
-                    "Could not start the ERD baseline for the new session",
-                    exc_info=True,
+            async with eeg_control_lock:
+                created = await session_service.create_session(
+                    patient_id=patient_id,
+                    preferred_hand=request.preferred_hand,
+                    notes=request.notes.strip(),
+                    eeg_enabled_at_start=eeg_service.enabled,
                 )
-            return created
+                if eeg_service.enabled:
+                    try:
+                        await eeg_service.start_erd_baseline()
+                    except Exception:
+                        logger.warning(
+                            "Could not start the ERD baseline for the new session",
+                            exc_info=True,
+                        )
+                return created
         except ActiveSessionExistsError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
 

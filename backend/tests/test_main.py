@@ -44,6 +44,7 @@ def _health_endpoint(app):
 
 class FakeEegService:
     def __init__(self, started: set[str]) -> None:
+        self.enabled = True
         self.status = EegStatus.DISCONNECTED
         self.error = None
         self._started = started
@@ -57,6 +58,13 @@ class FakeEegService:
 
     async def start_erd_baseline(self) -> None:
         return
+
+    async def set_enabled(self, enabled, manager) -> None:
+        self.enabled = enabled
+        if enabled:
+            await self.start(manager)
+        else:
+            self.status = EegStatus.DISABLED
 
 
 class AppFactoryTests(unittest.IsolatedAsyncioTestCase):
@@ -72,7 +80,8 @@ class AppFactoryTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(health["status"], "ok")
             self.assertEqual(health["application"], "panel-vr")
             self.assertEqual(health["eeg_device_name"], "BA MINI 037")
-            self.assertEqual(health["eeg_status"], "disconnected")
+            self.assertFalse(health["eeg_enabled"])
+            self.assertEqual(health["eeg_status"], "disabled")
             self.assertEqual(health["et_status"], "disabled")
             self.assertFalse(health["beacon_running"])
 
@@ -144,6 +153,41 @@ class AppFactoryTests(unittest.IsolatedAsyncioTestCase):
 
 
 class SessionApiTests(unittest.TestCase):
+    def test_eeg_can_be_disabled_before_session_and_enabled_after_it(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            static_dir = Path(temporary_directory)
+            (static_dir / "index.html").write_text("<html></html>", encoding="utf-8")
+            app = create_app(_settings(static_dir, eeg_mode="mock"))
+
+            with TestClient(app) as client:
+                health = client.get("/api/health").json()
+                self.assertTrue(health["eeg_enabled"])
+
+                disabled = client.put("/api/eeg", json={"enabled": False})
+                self.assertEqual(disabled.status_code, 200)
+                self.assertFalse(disabled.json()["eeg_enabled"])
+                self.assertEqual(disabled.json()["eeg_status"], "disabled")
+
+                created = client.post(
+                    "/api/sessions",
+                    json={
+                        "patient_id": "patient-no-eeg",
+                        "preferred_hand": "not_specified",
+                        "notes": "",
+                    },
+                )
+                self.assertEqual(created.status_code, 201)
+                self.assertFalse(created.json()["eeg_enabled_at_start"])
+                session_id = created.json()["session_id"]
+
+                blocked = client.put("/api/eeg", json={"enabled": True})
+                self.assertEqual(blocked.status_code, 409)
+
+                client.post(f"/api/sessions/{session_id}/end")
+                enabled = client.put("/api/eeg", json={"enabled": True})
+                self.assertEqual(enabled.status_code, 200)
+                self.assertTrue(enabled.json()["eeg_enabled"])
+
     def test_session_lifecycle_records_websocket_data_and_downloads_raw_zip(
         self,
     ) -> None:
@@ -189,6 +233,7 @@ class SessionApiTests(unittest.TestCase):
                 self.assertEqual(ended_response.status_code, 200)
                 summary = ended_response.json()
                 self.assertEqual(summary["status"], "completed")
+                self.assertFalse(summary["eeg_enabled_at_start"])
                 self.assertEqual(summary["counts"]["eeg_records"], 1)
                 self.assertEqual(summary["counts"]["eye_tracking_records"], 1)
                 self.assertEqual(summary["counts"]["vr_events"], 1)

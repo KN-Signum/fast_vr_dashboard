@@ -58,6 +58,7 @@ class SessionReportTests(unittest.TestCase):
             "patient_id": "patient-002",
             "preferred_hand": "not_specified",
             "notes": "",
+            "eeg_enabled_at_start": False,
             "status": "interrupted",
             "started_at": "2026-07-31T08:00:00Z",
             "ended_at": None,

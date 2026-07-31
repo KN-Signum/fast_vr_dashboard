@@ -269,8 +269,22 @@ The dashboard relays selected actions as command JSON. Unity may answer with
 `GET /api/health`
 
 Returns application/version/environment, configured EEG and ET modes, device
-name, subsystem status/errors, beacon state, active session ID, and session
-writer error.
+name, runtime `eeg_enabled` state, subsystem status/errors, beacon state,
+active session ID, and session writer error.
+
+### Control EEG
+
+`PUT /api/eeg`
+
+```json
+{"enabled": false}
+```
+
+Disabling EEG stops the active acquisition or reconnect loop. Enabling it
+starts device discovery again. The setting can only be changed when no session
+is active; otherwise the endpoint returns HTTP `409`. The session summary
+stores `eeg_enabled_at_start` so exports distinguish a disabled sensor from a
+missing signal.
 
 ### Create a Session
 

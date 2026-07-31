@@ -30,6 +30,7 @@ class SessionRepositoryTests(unittest.TestCase):
             patient_id="patient-001",
             preferred_hand="right",
             notes="Baseline",
+            eeg_enabled_at_start=False,
         )
         session_id = created["session_id"]
         self.repository.append_records(
@@ -74,6 +75,7 @@ class SessionRepositoryTests(unittest.TestCase):
         summary = self.repository.end_session(session_id)
 
         self.assertEqual(summary["status"], "completed")
+        self.assertFalse(summary["eeg_enabled_at_start"])
         self.assertEqual(summary["counts"]["eeg_records"], 1)
         self.assertEqual(summary["counts"]["eye_tracking_records"], 1)
         self.assertEqual(summary["counts"]["vr_events"], 1)
@@ -99,6 +101,7 @@ class SessionRepositoryTests(unittest.TestCase):
             )
             exported_summary = json.loads(raw_data.read("session.json"))
             self.assertEqual(exported_summary["session_id"], session_id)
+            self.assertFalse(exported_summary["eeg_enabled_at_start"])
             exported_events = [
                 json.loads(line)
                 for line in raw_data.read("session_events.ndjson")

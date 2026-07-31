@@ -62,12 +62,14 @@ port `15000` and connects to `/ws`, whose default role is `vr`.
 4. Start **Panel VR**. The dashboard opens at `http://127.0.0.1:8080`.
 5. Start the VR application. The headset should discover the server
    automatically.
-6. On the setup screen, verify backend, EEG, VR, and ET activity.
+6. On the setup screen, verify backend, EEG, VR, and ET activity. If the
+   examination does not use EEG, turn it off with the switch in the EEG row;
+   this stops device discovery and automatic reconnection attempts.
 7. Enter the patient identifier, preferred hand, and optional notes, then create
    the session.
 8. During the session, use the left-side controls, watch the VR/ET preview and
    EEG plots, and report observed events below the timeline.
-9. End the session and download the JSON summary and raw-data ZIP.
+9. End the session and download the PDF report and raw-data ZIP.
 
 Only one session can be active at a time. If the application is stopped during a
 session, the backend marks that session as `interrupted` on the next startup and

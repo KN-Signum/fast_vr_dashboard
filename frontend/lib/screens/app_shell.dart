@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/eeg_provider.dart';
+import '../providers/eeg_control_provider.dart';
 import '../providers/eye_tracking_provider.dart';
 import '../providers/game_provider.dart';
 import '../providers/session_provider.dart';
@@ -30,6 +31,7 @@ class _AppShellState extends State<AppShell> {
     final gameProvider = context.read<GameProvider>();
     final eyeTrackingProvider = context.read<EyeTrackingProvider>();
     final eegProvider = context.read<EegProvider>();
+    final eegControlProvider = context.read<EegControlProvider>();
     final sessionProvider = context.read<SessionProvider>();
 
     wsProvider.setEyeTrackingCallback((data) {
@@ -47,6 +49,7 @@ class _AppShellState extends State<AppShell> {
     });
 
     unawaited(sessionProvider.restoreActiveSession());
+    unawaited(eegControlProvider.refresh());
     wsProvider.connect(WebSocketProvider.defaultBackendUrl());
   }
 

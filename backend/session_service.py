@@ -73,6 +73,7 @@ class SessionService:
         patient_id: str,
         preferred_hand: str,
         notes: str,
+        eeg_enabled_at_start: bool = True,
     ) -> dict[str, Any]:
         async with self._lifecycle_lock:
             summary = await asyncio.to_thread(
@@ -80,6 +81,7 @@ class SessionService:
                 patient_id=patient_id,
                 preferred_hand=preferred_hand,
                 notes=notes,
+                eeg_enabled_at_start=eeg_enabled_at_start,
             )
             self.active_session_id = summary["session_id"]
             self.error = None

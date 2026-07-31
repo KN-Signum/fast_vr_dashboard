@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/eeg_provider.dart';
+import '../providers/eeg_control_provider.dart';
 import '../providers/eye_tracking_provider.dart';
 import '../providers/session_provider.dart';
 import '../providers/web_socket_provider.dart';
@@ -26,10 +27,13 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
   void initState() {
     super.initState();
     _patientIdController.addListener(_onFormChanged);
-    _statusTimer = Timer.periodic(
-      const Duration(seconds: 1),
-      (_) => setState(() {}),
-    );
+    _statusTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      setState(() {});
+      if (timer.tick.isEven) {
+        unawaited(context.read<EegControlProvider>().refresh());
+      }
+    });
   }
 
   @override
@@ -50,6 +54,7 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
   Widget build(BuildContext context) {
     final ws = context.watch<WebSocketProvider>();
     final eeg = context.watch<EegProvider>();
+    final eegControl = context.watch<EegControlProvider>();
     final eyeTracking = context.watch<EyeTrackingProvider>();
     final session = context.watch<SessionProvider>();
     final patientId = _patientIdController.text.trim();
@@ -106,13 +111,22 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
                       flex: 2,
                       child: _ConnectionStatusCard(
                         backendOnline: ws.isConnected,
-                        eegOnline: _isRecent(eeg.latest?.timestamp),
+                        eegOnline:
+                            eegControl.enabled &&
+                            _isRecent(eeg.latest?.timestamp),
+                        eegEnabled: eegControl.enabled,
+                        eegToggleEnabled:
+                            eegControl.hasLoaded &&
+                            eegControl.isAvailable &&
+                            !eegControl.isBusy,
+                        eegToggleBusy: eegControl.isBusy,
                         vrOnline: _isRecent(ws.lastFrameAt),
                         eyeTrackingOnline: eyeTracking.isReceiving,
                         backendDetail: ws.status,
-                        eegDetail: eeg.latest == null
-                            ? 'Oczekiwanie na dane EEG'
-                            : 'Ostatnie EEG ${_formatAge(eeg.latest!.timestamp)} temu',
+                        eegDetail: _eegDetail(eegControl, eeg),
+                        onEegEnabledChanged: (enabled) {
+                          unawaited(eegControl.setEnabled(enabled));
+                        },
                         vrDetail: ws.lastFrameAt == null
                             ? 'Oczekiwanie na podgląd wideo'
                             : 'Ostatnia klatka ${_formatAge(ws.lastFrameAt!)} temu',
@@ -139,6 +153,24 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
   String _formatAge(DateTime value) {
     final seconds = DateTime.now().difference(value).inSeconds;
     return '$seconds s';
+  }
+
+  String _eegDetail(EegControlProvider control, EegProvider eeg) {
+    if (!control.hasLoaded) return 'Sprawdzanie ustawienia EEG';
+    if (!control.isAvailable) return 'Wyłączone w konfiguracji serwera';
+    if (!control.enabled) return 'Wyłączone przez operatora';
+    if (control.isBusy) return 'Zmiana ustawienia EEG';
+    if (control.requestError != null) return control.requestError!;
+    if (control.status == 'error') {
+      return control.eegError ?? 'Błąd połączenia z EEG';
+    }
+    if (control.status == 'connecting') {
+      return control.deviceName.isEmpty
+          ? 'Wyszukiwanie urządzenia EEG'
+          : 'Łączenie z ${control.deviceName}';
+    }
+    if (eeg.latest == null) return 'Oczekiwanie na dane EEG';
+    return 'Ostatnie EEG ${_formatAge(eeg.latest!.timestamp)} temu';
   }
 }
 
@@ -247,22 +279,30 @@ class _SessionFormCard extends StatelessWidget {
 class _ConnectionStatusCard extends StatelessWidget {
   final bool backendOnline;
   final bool eegOnline;
+  final bool eegEnabled;
+  final bool eegToggleEnabled;
+  final bool eegToggleBusy;
   final bool vrOnline;
   final bool eyeTrackingOnline;
   final String backendDetail;
   final String eegDetail;
   final String vrDetail;
   final String eyeTrackingDetail;
+  final ValueChanged<bool> onEegEnabledChanged;
 
   const _ConnectionStatusCard({
     required this.backendOnline,
     required this.eegOnline,
+    required this.eegEnabled,
+    required this.eegToggleEnabled,
+    required this.eegToggleBusy,
     required this.vrOnline,
     required this.eyeTrackingOnline,
     required this.backendDetail,
     required this.eegDetail,
     required this.vrDetail,
     required this.eyeTrackingDetail,
+    required this.onEegEnabledChanged,
   });
 
   @override
@@ -297,6 +337,24 @@ class _ConnectionStatusCard extends StatelessWidget {
             label: 'EEG',
             online: eegOnline,
             detail: eegDetail,
+            disabled: !eegEnabled,
+            trailing: Tooltip(
+              message: eegEnabled ? 'Wyłącz EEG' : 'Włącz EEG',
+              child: eegToggleBusy
+                  ? const SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: Padding(
+                        padding: EdgeInsets.all(10),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : Switch(
+                      key: const Key('eeg-enabled-switch'),
+                      value: eegEnabled,
+                      onChanged: eegToggleEnabled ? onEegEnabledChanged : null,
+                    ),
+            ),
           ),
           _StatusRow(
             icon: Icons.videocam,
@@ -321,17 +379,25 @@ class _StatusRow extends StatelessWidget {
   final String label;
   final bool online;
   final String detail;
+  final bool disabled;
+  final Widget? trailing;
 
   const _StatusRow({
     required this.icon,
     required this.label,
     required this.online,
     required this.detail,
+    this.disabled = false,
+    this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = online ? AppColors.success : AppColors.warning;
+    final color = disabled
+        ? AppColors.muted
+        : online
+        ? AppColors.success
+        : AppColors.warning;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
@@ -369,10 +435,11 @@ class _StatusRow extends StatelessWidget {
                 ],
               ),
             ),
-            StatusPill(
-              label: online ? 'POŁĄCZONO' : 'OCZEKUJE',
-              online: online,
-            ),
+            trailing ??
+                StatusPill(
+                  label: online ? 'POŁĄCZONO' : 'OCZEKUJE',
+                  online: online,
+                ),
           ],
         ),
       ),
