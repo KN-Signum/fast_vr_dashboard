@@ -482,6 +482,11 @@ class _ChannelChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final centered = _center(samples);
     final duration = samplingRate > 0 ? samples.length / samplingRate : 0.0;
+    final currentVoltage = samples.isEmpty ? null : samples.last;
+    final currentVoltageLabel = currentVoltage == null
+        ? '— µV'
+        : '${currentVoltage >= 0 ? '+' : ''}'
+              '${currentVoltage.toStringAsFixed(1)} µV';
 
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
@@ -509,9 +514,23 @@ class _ChannelChart extends StatelessWidget {
                 _QualityBadge(quality: quality),
                 const SizedBox(width: 6),
               ],
-              Text(
-                '${duration.toStringAsFixed(1)} s · 1–40 Hz · µV',
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 9),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    currentVoltageLabel,
+                    key: ValueKey('current-voltage-$channel'),
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    '${duration.toStringAsFixed(1)} s · 1–40 Hz',
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 9),
+                  ),
+                ],
               ),
             ],
           ),

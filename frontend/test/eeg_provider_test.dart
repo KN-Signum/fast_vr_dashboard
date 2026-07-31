@@ -38,7 +38,7 @@ Map<String, dynamic> _payload({
 }
 
 void main() {
-  test('keeps separate 60-second rolling buffers per channel', () {
+  test('keeps separate 30-second rolling buffers per channel', () {
     final provider = EegProvider();
 
     provider.updateFromJson(
@@ -62,10 +62,10 @@ void main() {
       ),
     );
 
-    expect(provider.samplesForChannel('Fp1'), hasLength(120));
-    expect(provider.samplesForChannel('Fp1').first, 40);
+    expect(provider.samplesForChannel('Fp1'), hasLength(60));
+    expect(provider.samplesForChannel('Fp1').first, 100);
     expect(provider.samplesForChannel('Fp1').last, 159);
-    expect(provider.samplesForChannel('Fp2').first, 140);
+    expect(provider.samplesForChannel('Fp2').first, 200);
   });
 
   test(
@@ -90,7 +90,7 @@ void main() {
   );
 
   test(
-    'maps alpha ERD to channels and removes history older than 60 seconds',
+    'maps alpha ERD to channels and removes history older than 30 seconds',
     () {
       final provider = EegProvider();
       const channels = ['Fp1', 'Fp2'];
@@ -118,7 +118,7 @@ void main() {
           erd: const {
             'alpha': [30, 40],
           },
-          timestampMs: 62000,
+          timestampMs: 32000,
         ),
       );
 
@@ -188,6 +188,12 @@ void main() {
     expect(find.text('Zmiana alfa nie jest dostępna'), findsOneWidget);
     expect(find.byType(FilterChip), findsNWidgets(2));
     expect(find.text('Fp1'), findsNWidgets(3));
+    final voltage = tester.widget<Text>(
+      find.byKey(const ValueKey('current-voltage-Fp1')),
+    );
+    expect(voltage.data, isNot(contains('teraz')));
+    expect(voltage.data, endsWith(' µV'));
+    expect(voltage.style?.color, Colors.black);
 
     await tester.tap(find.widgetWithText(FilterChip, 'Fp1'));
     await tester.pump();

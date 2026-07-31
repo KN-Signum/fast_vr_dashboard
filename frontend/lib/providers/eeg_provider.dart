@@ -4,7 +4,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
-const int kEegDisplaySeconds = 60;
+const int kEegDisplaySeconds = 30;
+const int kErdDisplaySeconds = 30;
 const int kMaxVisibleEegChannels = 8;
 const int kEegSnapshotBufferSize = 30;
 
@@ -244,7 +245,7 @@ class EegProvider with ChangeNotifier {
           final now = snapshot.timestamp;
           _alphaErdHistory.add(EegErdPoint(timestamp: now, values: values));
           final cutoff = now.subtract(
-            const Duration(seconds: kEegDisplaySeconds),
+            const Duration(seconds: kErdDisplaySeconds),
           );
           _alphaErdHistory.removeWhere(
             (point) => point.timestamp.isBefore(cutoff),
