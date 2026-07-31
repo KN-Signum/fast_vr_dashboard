@@ -98,6 +98,7 @@ Requirements:
 
 Start the backend from one terminal:
 
+
 ```shell
 cd backend
 uv sync --all-groups
@@ -137,11 +138,11 @@ generated frontend assets, protocol changes, and packaging checks.
 
 Session data is stored outside the installation directory:
 
-| Platform | Default directory |
-| --- | --- |
-| Windows | `%LOCALAPPDATA%\NEXT\PanelVR` |
-| macOS | `~/Library/Application Support/NEXT/PanelVR` |
-| Linux | `${XDG_DATA_HOME:-~/.local/share}/next/panelvr` |
+| Platform | Default directory                               |
+| -------- | ----------------------------------------------- |
+| Windows  | `%LOCALAPPDATA%\NEXT\PanelVR`                   |
+| macOS    | `~/Library/Application Support/NEXT/PanelVR`    |
+| Linux    | `${XDG_DATA_HOME:-~/.local/share}/next/panelvr` |
 
 The directory contains:
 

@@ -97,6 +97,10 @@ class EegPanel extends StatelessWidget {
 }
 
 class _ChannelSelector extends StatelessWidget {
+  static const _columnCount = 4;
+  static const _spacing = 6.0;
+  static const _tileHeight = 34.0;
+
   final List<String> channels;
   final EegProvider eeg;
 
@@ -104,23 +108,39 @@ class _ChannelSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rowCount = (channels.length / _columnCount).ceil();
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: channels
-            .map(
-              (channel) => FilterChip(
-                label: Text(channel),
-                selected: eeg.isChannelEnabled(channel),
-                onSelected: (_) => eeg.toggleChannel(channel),
-                selectedColor: AppColors.primary.withValues(alpha: 0.18),
-                checkmarkColor: AppColors.primary,
-                visualDensity: VisualDensity.compact,
-              ),
-            )
-            .toList(growable: false),
+      child: SizedBox(
+        height: rowCount == 0
+            ? 0
+            : rowCount * _tileHeight + (rowCount - 1) * _spacing,
+        child: GridView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: _columnCount,
+            mainAxisExtent: _tileHeight,
+            crossAxisSpacing: _spacing,
+            mainAxisSpacing: _spacing,
+          ),
+          itemCount: channels.length,
+          itemBuilder: (context, index) {
+            final channel = channels[index];
+            return FilterChip(
+              key: ValueKey('eeg-channel-$channel'),
+              label: Text(channel),
+              selected: eeg.isChannelEnabled(channel),
+              onSelected: (_) => eeg.toggleChannel(channel),
+              selectedColor: AppColors.primary.withValues(alpha: 0.18),
+              checkmarkColor: AppColors.primary,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              labelPadding: const EdgeInsets.symmetric(horizontal: 2),
+            );
+          },
+        ),
       ),
     );
   }

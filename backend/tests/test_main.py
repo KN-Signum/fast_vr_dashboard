@@ -195,6 +195,19 @@ class SessionApiTests(unittest.TestCase):
                 self.assertEqual(summary["counts"]["vr_frames"], 1)
                 self.assertEqual(summary["counts"]["session_events"], 1)
 
+                report_response = client.get(
+                    f"/api/sessions/{session_id}/download/summary"
+                )
+                self.assertEqual(report_response.status_code, 200)
+                self.assertEqual(
+                    report_response.headers["content-type"], "application/pdf"
+                )
+                self.assertIn(
+                    f'filename="raport_sesji_{session_id}.pdf"',
+                    report_response.headers["content-disposition"],
+                )
+                self.assertTrue(report_response.content.startswith(b"%PDF-"))
+
                 raw_response = client.get(
                     f"/api/sessions/{session_id}/download/raw"
                 )
@@ -202,7 +215,7 @@ class SessionApiTests(unittest.TestCase):
                 self.assertEqual(raw_response.headers["content-type"], "application/zip")
                 with zipfile.ZipFile(io.BytesIO(raw_response.content)) as archive:
                     self.assertIn("eeg.ndjson", archive.namelist())
-                    self.assertIn("summary_report.json", archive.namelist())
+                    self.assertIn("session.json", archive.namelist())
 
 
 if __name__ == "__main__":

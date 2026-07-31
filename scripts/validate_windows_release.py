@@ -17,7 +17,9 @@ INSTALLER_SCRIPT = ROOT / "installer" / "PanelVR.iss"
 CLIENT_README = ROOT / "installer" / "README_PL.txt"
 BUILD_INFO = ROOT / "backend" / "static" / "web" / "build-info.json"
 BRAINACCESS_LIB = ROOT / "backend" / "brainaccess" / "lib"
+REPORT_FONT_DIR = ROOT / "backend" / "assets" / "fonts"
 REQUIRED_DLLS = ("babciconnect.dll", "bacore.dll", "simpleble.dll")
+REQUIRED_REPORT_FONTS = ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf")
 PE_MACHINE_I386 = 0x014C
 PE_MACHINE_AMD64 = 0x8664
 PE32_MAGIC = 0x10B
@@ -121,6 +123,13 @@ def validate_windows_release_sources(root: Path = ROOT) -> None:
 
     for dll_name in REQUIRED_DLLS:
         require_x64_pe(BRAINACCESS_LIB / dll_name)
+    missing_fonts = [
+        name for name in REQUIRED_REPORT_FONTS if not (REPORT_FONT_DIR / name).is_file()
+    ]
+    if missing_fonts:
+        raise WindowsReleaseValidationError(
+            f"Session report fonts are missing: {', '.join(missing_fonts)}"
+        )
     validate_installer_source()
 
 

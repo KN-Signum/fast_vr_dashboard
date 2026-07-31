@@ -191,11 +191,9 @@ class _DownloadCard extends StatelessWidget {
               child: ElevatedButton.icon(
                 onPressed: summaryUri == null
                     ? null
-                    : () => _download(
-                        summaryUri,
-                        'summary_report_$sessionId.json',
-                      ),
-                icon: const Icon(Icons.description),
+                    : () =>
+                          _download(summaryUri, 'raport_sesji_$sessionId.pdf'),
+                icon: const Icon(Icons.picture_as_pdf),
                 label: const Text('Pobierz raport'),
               ),
             ),

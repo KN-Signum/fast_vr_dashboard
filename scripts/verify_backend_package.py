@@ -25,6 +25,7 @@ DEFAULT_PACKAGE = ROOT / "dist" / "PanelVR"
 SOURCE_STATIC = ROOT / "backend" / "static" / "web"
 MANIFEST_NAME = "package-manifest.json"
 REQUIRED_DLLS = ("babciconnect.dll", "bacore.dll", "simpleble.dll")
+REQUIRED_REPORT_FONTS = ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf")
 
 
 class PackageVerificationError(RuntimeError):
@@ -132,6 +133,16 @@ def verify_backend_package(
     if missing_dlls:
         raise PackageVerificationError(
             f"Package is missing BrainAccess DLLs: {', '.join(missing_dlls)}"
+        )
+
+    missing_fonts = [
+        name
+        for name in REQUIRED_REPORT_FONTS
+        if not (resource_root / "assets" / "fonts" / name).is_file()
+    ]
+    if missing_fonts:
+        raise PackageVerificationError(
+            f"Package is missing session report fonts: {', '.join(missing_fonts)}"
         )
 
     manifest = _read_json(package_dir / MANIFEST_NAME)

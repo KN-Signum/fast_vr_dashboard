@@ -503,7 +503,7 @@ class SessionRepository:
             compresslevel=6,
         ) as archive:
             archive.writestr(
-                "summary_report.json",
+                "session.json",
                 json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
             )
             for filename in (*STREAM_FILES.values(), "session_events.ndjson"):

@@ -89,7 +89,7 @@ class SessionRepositoryTests(unittest.TestCase):
             self.assertEqual(
                 set(raw_data.namelist()),
                 {
-                    "summary_report.json",
+                    "session.json",
                     "eeg.ndjson",
                     "eye_tracking.ndjson",
                     "vr_events.ndjson",
@@ -97,7 +97,7 @@ class SessionRepositoryTests(unittest.TestCase):
                     "session_events.ndjson",
                 },
             )
-            exported_summary = json.loads(raw_data.read("summary_report.json"))
+            exported_summary = json.loads(raw_data.read("session.json"))
             self.assertEqual(exported_summary["session_id"], session_id)
             exported_events = [
                 json.loads(line)

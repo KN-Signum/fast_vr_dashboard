@@ -225,6 +225,22 @@ void main() {
     );
 
     expect(find.byType(FilterChip), findsNWidgets(8));
+    final channelCenters = [
+      for (final channel in channels)
+        tester.getCenter(find.byKey(ValueKey('eeg-channel-$channel'))),
+    ];
+    expect(
+      channelCenters.take(4).map((center) => center.dy).toSet(),
+      hasLength(1),
+    );
+    expect(
+      channelCenters.skip(4).map((center) => center.dy).toSet(),
+      hasLength(1),
+    );
+    expect(channelCenters[0].dy, lessThan(channelCenters[4].dy));
+    for (var column = 0; column < 4; column++) {
+      expect(channelCenters[column].dx, channelCenters[column + 4].dx);
+    }
     expect(find.text('Znormalizowana zmiana alfa'), findsOneWidget);
     expect(find.text('Zmiana alfa nie jest dostępna'), findsNothing);
     expect(

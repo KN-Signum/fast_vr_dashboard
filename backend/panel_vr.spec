@@ -5,6 +5,7 @@ import sys
 backend_dir = Path(SPECPATH).resolve()
 static_dir = backend_dir / "static" / "web"
 brainaccess_lib_dir = backend_dir / "brainaccess" / "lib"
+font_dir = backend_dir / "assets" / "fonts"
 
 brainaccess_dlls = [
     (str(path), "brainaccess/lib")
@@ -17,6 +18,7 @@ analysis = Analysis(
     binaries=[],
     datas=[
         (str(static_dir), "static/web"),
+        (str(font_dir), "assets/fonts"),
         *brainaccess_dlls,
     ],
     hiddenimports=[

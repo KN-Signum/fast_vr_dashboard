@@ -127,9 +127,19 @@ def smoke_test(package_dir: Path, *, timeout: float = 45.0) -> None:
             if ended.get("status") != "completed":
                 raise RuntimeError(f"Packaged session did not end: {ended}")
 
-            summary = get_json(f"{api_base}/{session_id}/download/summary")
+            summary = get_json(f"{api_base}/{session_id}/summary")
             if summary.get("session_id") != session_id:
                 raise RuntimeError(f"Invalid packaged session summary: {summary}")
+
+            with urllib.request.urlopen(
+                f"{api_base}/{session_id}/download/summary",
+                timeout=5.0,
+            ) as response:
+                if response.headers.get_content_type() != "application/pdf":
+                    raise RuntimeError("Packaged session report is not a PDF")
+                report_bytes = response.read()
+            if not report_bytes.startswith(b"%PDF-"):
+                raise RuntimeError("Packaged session report has an invalid PDF header")
 
             with urllib.request.urlopen(
                 f"{api_base}/{session_id}/download/raw",
@@ -138,7 +148,7 @@ def smoke_test(package_dir: Path, *, timeout: float = 45.0) -> None:
                 archive_bytes = response.read()
             with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
                 expected_files = {
-                    "summary_report.json",
+                    "session.json",
                     "eeg.ndjson",
                     "eye_tracking.ndjson",
                     "vr_events.ndjson",

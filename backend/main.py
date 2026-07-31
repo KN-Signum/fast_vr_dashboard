@@ -26,6 +26,7 @@ from session_repository import (
     SessionRepository,
     SessionStateError,
 )
+from session_report import build_session_report
 from session_service import SessionService
 
 
@@ -324,12 +325,17 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             summary = await session_service.summary(session_id)
         except SessionNotFoundError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
+        report = await asyncio.to_thread(
+            build_session_report,
+            summary,
+            app_version=resolved_settings.app_version,
+        )
         return Response(
-            content=json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
-            media_type="application/json",
+            content=report,
+            media_type="application/pdf",
             headers={
                 "Content-Disposition": (
-                    f'attachment; filename="summary_report_{session_id}.json"'
+                    f'attachment; filename="raport_sesji_{session_id}.pdf"'
                 )
             },
         )
