@@ -212,7 +212,11 @@ class SessionApiTests(unittest.TestCase):
                 with client.websocket_connect("/ws?role=vr") as websocket:
                     websocket.send_json({"type": "eeg_data", "sequence": 0})
                     websocket.send_json(
-                        {"type": "eye_tracking", "gaze_screen_x": 0.5}
+                        {
+                            "type": "eye_tracking",
+                            "gaze_screen_x": 0.5,
+                            "gaze_screen_y": 0.75,
+                        }
                     )
                     websocket.send_json({"type": "scene_state", "scene": "forest"})
                     websocket.send_bytes(b"\xff\xd8frame")
@@ -246,6 +250,10 @@ class SessionApiTests(unittest.TestCase):
                 self.assertEqual(summary["counts"]["vr_events"], 1)
                 self.assertEqual(summary["counts"]["vr_frames"], 1)
                 self.assertEqual(summary["counts"]["session_events"], 1)
+                self.assertEqual(
+                    summary["eye_tracking_analysis"]["valid_points"],
+                    1,
+                )
 
                 notes_response = client.put(
                     f"/api/sessions/{session_id}/post-session-notes",

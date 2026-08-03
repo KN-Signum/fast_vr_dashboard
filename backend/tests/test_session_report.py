@@ -39,6 +39,28 @@ class SessionReportTests(unittest.TestCase):
                 "session_events": len(events),
             },
             "dropped_records": 0,
+            "eye_tracking_analysis": {
+                "total_records": 2000,
+                "valid_points": 1800,
+                "valid_percent": 90.0,
+                "heatmap_percent": [
+                    [float((row + column) % 5) for column in range(12)]
+                    for row in range(8)
+                ],
+                "horizontal": {"left": 20.0, "center": 35.0, "right": 45.0},
+                "vertical": {"top": 25.0, "middle": 50.0, "bottom": 25.0},
+                "regions": {
+                    "top_left": 5.0,
+                    "top_center": 10.0,
+                    "top_right": 10.0,
+                    "middle_left": 10.0,
+                    "middle_center": 20.0,
+                    "middle_right": 20.0,
+                    "bottom_left": 5.0,
+                    "bottom_center": 5.0,
+                    "bottom_right": 15.0,
+                },
+            },
             "session_events": events,
         }
 

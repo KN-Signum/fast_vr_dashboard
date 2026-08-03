@@ -227,6 +227,13 @@ to an edge.
 In production, `VRDASH_ET_MODE=vr` means the backend waits for Unity ET
 messages. It does not open a separate ET device connection.
 
+After a session ends, the backend reads the saved ET stream and builds a
+descriptive 12-by-8 gaze heatmap from valid `gaze_screen_x/y` pairs. The
+summary also reports valid-data coverage, left/center/right percentages,
+top/middle/bottom percentages, and a 3-by-3 regional distribution. Invalid or
+missing projected coordinates are excluded. These values describe the
+recorded gaze distribution and do not apply diagnostic thresholds.
+
 ### VR Binary Frames
 
 The dashboard accepts:
@@ -380,6 +387,17 @@ Summary shape:
   "preferred_hand": "right",
   "notes": "",
   "post_session_notes": "",
+  "eye_tracking_analysis": {
+    "total_records": 8000,
+    "valid_points": 7600,
+    "valid_percent": 95.0,
+    "columns": 12,
+    "rows": 8,
+    "heatmap_percent": [],
+    "horizontal": {"left": 25.0, "center": 35.0, "right": 40.0},
+    "vertical": {"top": 20.0, "middle": 55.0, "bottom": 25.0},
+    "regions": {}
+  },
   "status": "completed",
   "started_at": "2026-07-30T10:00:00Z",
   "ended_at": "2026-07-30T10:10:00Z",

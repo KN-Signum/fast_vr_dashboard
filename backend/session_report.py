@@ -95,6 +95,10 @@ def build_session_report(
             Spacer(1, 2.5 * mm),
             _counts_table(summary, styles),
             Spacer(1, 5 * mm),
+            _section_heading("Rozkład spojrzenia", styles),
+            Spacer(1, 2.5 * mm),
+            _eye_tracking_content(summary, styles),
+            Spacer(1, 5 * mm),
             _section_heading("Zdarzenia obserwowane", styles),
             Spacer(1, 2.5 * mm),
             _events_content(summary, styles),
@@ -390,6 +394,178 @@ def _counts_table(
         )
     )
     return table
+
+
+def _eye_tracking_content(
+    summary: dict[str, Any],
+    styles: dict[str, ParagraphStyle],
+):
+    analysis = summary.get("eye_tracking_analysis")
+    if not isinstance(analysis, dict) or int(analysis.get("valid_points") or 0) <= 0:
+        return Paragraph(
+            "Brak poprawnych punktów spojrzenia z projekcją na ekran.",
+            styles["body"],
+        )
+
+    total = int(analysis.get("total_records") or 0)
+    valid = int(analysis.get("valid_points") or 0)
+    valid_percent = float(analysis.get("valid_percent") or 0)
+    heatmap_values = analysis.get("heatmap_percent")
+    if not isinstance(heatmap_values, list) or not heatmap_values:
+        return Paragraph("Brak danych mapy spojrzenia.", styles["body"])
+
+    numeric_heatmap = [
+        [float(value) if isinstance(value, (int, float)) else 0.0 for value in row]
+        for row in heatmap_values
+        if isinstance(row, list)
+    ]
+    if not numeric_heatmap or not numeric_heatmap[0]:
+        return Paragraph("Brak danych mapy spojrzenia.", styles["body"])
+
+    heatmap = _eye_tracking_heatmap(numeric_heatmap, styles)
+    regions = analysis.get("regions")
+    if not isinstance(regions, dict):
+        regions = {}
+    region_table = _eye_tracking_region_table(regions, styles)
+    horizontal = analysis.get("horizontal")
+    vertical = analysis.get("vertical")
+    if not isinstance(horizontal, dict):
+        horizontal = {}
+    if not isinstance(vertical, dict):
+        vertical = {}
+
+    return KeepTogether(
+        [
+            Paragraph(
+                f"Poprawne punkty: {_format_count(valid)} / {_format_count(total)} "
+                f"({_format_percent(valid_percent)})",
+                styles["body"],
+            ),
+            Spacer(1, 2 * mm),
+            heatmap,
+            Spacer(1, 2 * mm),
+            Paragraph(
+                "Poziomo: "
+                f"lewo {_format_percent(horizontal.get('left'))}, "
+                f"środek {_format_percent(horizontal.get('center'))}, "
+                f"prawo {_format_percent(horizontal.get('right'))}. "
+                "Pionowo: "
+                f"góra {_format_percent(vertical.get('top'))}, "
+                f"środek {_format_percent(vertical.get('middle'))}, "
+                f"dół {_format_percent(vertical.get('bottom'))}.",
+                styles["body"],
+            ),
+            Spacer(1, 2 * mm),
+            region_table,
+            Spacer(1, 1.5 * mm),
+            Paragraph(
+                "Opisowy rozkład zapisanych punktów spojrzenia; bez interpretacji "
+                "diagnostycznej.",
+                styles["disclaimer"],
+            ),
+        ]
+    )
+
+
+def _eye_tracking_heatmap(
+    values: list[list[float]],
+    styles: dict[str, ParagraphStyle],
+) -> Table:
+    column_count = max(len(row) for row in values)
+    normalized = [row + [0.0] * (column_count - len(row)) for row in values]
+    maximum = max((value for row in normalized for value in row), default=0.0)
+    grid = Table(
+        [["" for _ in range(column_count)] for _ in normalized],
+        colWidths=[144 * mm / column_count] * column_count,
+        rowHeights=[5 * mm] * len(normalized),
+    )
+    commands = [
+        ("BOX", (0, 0), (-1, -1), 0.5, _BORDER),
+        ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.white),
+    ]
+    for row_index, row in enumerate(normalized):
+        for column_index, value in enumerate(row):
+            commands.append(
+                (
+                    "BACKGROUND",
+                    (column_index, row_index),
+                    (column_index, row_index),
+                    _heatmap_color(value, maximum),
+                )
+            )
+    grid.setStyle(TableStyle(commands))
+    return Table(
+        [
+            ["", Paragraph("GÓRA", styles["label"]), ""],
+            [Paragraph("LEWO", styles["label"]), grid, Paragraph("PRAWO", styles["label"])],
+            ["", Paragraph("DÓŁ", styles["label"]), ""],
+        ],
+        colWidths=[15 * mm, 144 * mm, 15 * mm],
+        style=TableStyle(
+            [
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 1),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+            ]
+        ),
+    )
+
+
+def _eye_tracking_region_table(
+    regions: dict[str, Any],
+    styles: dict[str, ParagraphStyle],
+) -> Table:
+    rows = [
+        [
+            Paragraph("", styles["table_header"]),
+            Paragraph("Lewo", styles["table_header"]),
+            Paragraph("Środek", styles["table_header"]),
+            Paragraph("Prawo", styles["table_header"]),
+        ]
+    ]
+    for key, label in (("top", "Góra"), ("middle", "Środek"), ("bottom", "Dół")):
+        rows.append(
+            [
+                Paragraph(label, styles["table_header"]),
+                Paragraph(_format_percent(regions.get(f"{key}_left")), styles["table"]),
+                Paragraph(_format_percent(regions.get(f"{key}_center")), styles["table"]),
+                Paragraph(_format_percent(regions.get(f"{key}_right")), styles["table"]),
+            ]
+        )
+    table = Table(rows, colWidths=[36 * mm, 46 * mm, 46 * mm, 46 * mm])
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), _PRIMARY),
+                ("BACKGROUND", (0, 1), (0, -1), _PRIMARY),
+                ("BOX", (0, 0), (-1, -1), 0.5, _BORDER),
+                ("INNERGRID", (0, 0), (-1, -1), 0.3, _BORDER),
+                ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
+    return table
+
+
+def _heatmap_color(value: float, maximum: float):
+    ratio = 0.0 if maximum <= 0 else max(0.0, min(value / maximum, 1.0))
+    ratio = 0.08 + ratio * 0.92 if value > 0 else 0.0
+    return colors.Color(
+        _SURFACE.red + (_PRIMARY.red - _SURFACE.red) * ratio,
+        _SURFACE.green + (_PRIMARY.green - _SURFACE.green) * ratio,
+        _SURFACE.blue + (_PRIMARY.blue - _SURFACE.blue) * ratio,
+    )
+
+
+def _format_percent(value: Any) -> str:
+    try:
+        return f"{float(value):.1f}%"
+    except (TypeError, ValueError):
+        return "0.0%"
 
 
 def _events_content(

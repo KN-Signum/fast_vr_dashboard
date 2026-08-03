@@ -11,6 +11,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
+from eye_tracking_analysis import analyze_eye_tracking
+
 
 STREAM_FILES = {
     "eeg_records": "eeg.ndjson",
@@ -510,6 +512,11 @@ class SessionRepository:
                     * 1000
                 ),
             )
+        eye_tracking_analysis = None
+        if session["status"] != "active":
+            eye_tracking_analysis = analyze_eye_tracking(
+                self.session_directory(session_id) / STREAM_FILES["eye_tracking_records"]
+            )
         return {
             "session_id": session["id"],
             "patient_id": session["patient_id"],
@@ -531,6 +538,7 @@ class SessionRepository:
                 "session_events": session["session_events"],
             },
             "dropped_records": session["dropped_records"],
+            "eye_tracking_analysis": eye_tracking_analysis,
             "session_events": self.events(session_id),
         }
 
