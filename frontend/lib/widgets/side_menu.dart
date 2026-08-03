@@ -9,6 +9,7 @@ import '../providers/session_provider.dart';
 import '../providers/web_socket_provider.dart';
 import '../theme/app_style.dart';
 import 'control_section.dart';
+import 'post_session_notes_dialog.dart';
 
 class SideMenu extends StatelessWidget {
   final bool isOpen;
@@ -39,14 +40,12 @@ class SideMenu extends StatelessWidget {
               onPressed: session.isBusy
                   ? null
                   : () async {
-                      final success = await session.endSession();
-                      if (!success &&
-                          context.mounted &&
-                          session.errorMessage != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(session.errorMessage!)),
-                        );
-                      }
+                      await showDialog<void>(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (_) =>
+                            PostSessionNotesDialog(session: session),
+                      );
                     },
               icon: const Icon(Icons.stop_circle),
               label: const Text('Zakończ sesję'),

@@ -26,6 +26,7 @@ class SessionReportTests(unittest.TestCase):
             "patient_id": "pacjent-Żółć",
             "preferred_hand": "right",
             "notes": "Zażółć gęślą jaźń\nDruga linia notatki.",
+            "post_session_notes": "Pacjent czuł się dobrze po sesji.",
             "status": "completed",
             "started_at": "2026-07-31T08:00:00Z",
             "ended_at": "2026-07-31T08:15:00Z",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import json
 import tempfile
 import unittest
 import zipfile
@@ -229,6 +230,12 @@ class SessionApiTests(unittest.TestCase):
                 )
                 self.assertEqual(event_response.status_code, 201)
 
+                active_notes_response = client.put(
+                    f"/api/sessions/{session_id}/post-session-notes",
+                    json={"notes": "Too early"},
+                )
+                self.assertEqual(active_notes_response.status_code, 409)
+
                 ended_response = client.post(f"/api/sessions/{session_id}/end")
                 self.assertEqual(ended_response.status_code, 200)
                 summary = ended_response.json()
@@ -239,6 +246,17 @@ class SessionApiTests(unittest.TestCase):
                 self.assertEqual(summary["counts"]["vr_events"], 1)
                 self.assertEqual(summary["counts"]["vr_frames"], 1)
                 self.assertEqual(summary["counts"]["session_events"], 1)
+
+                notes_response = client.put(
+                    f"/api/sessions/{session_id}/post-session-notes",
+                    json={"notes": "  Pacjent czuł się dobrze.  "},
+                )
+                self.assertEqual(notes_response.status_code, 200)
+                summary = notes_response.json()
+                self.assertEqual(
+                    summary["post_session_notes"],
+                    "Pacjent czuł się dobrze.",
+                )
 
                 report_response = client.get(
                     f"/api/sessions/{session_id}/download/summary"
@@ -261,6 +279,11 @@ class SessionApiTests(unittest.TestCase):
                 with zipfile.ZipFile(io.BytesIO(raw_response.content)) as archive:
                     self.assertIn("eeg.ndjson", archive.namelist())
                     self.assertIn("session.json", archive.namelist())
+                    exported_summary = json.loads(archive.read("session.json"))
+                    self.assertEqual(
+                        exported_summary["post_session_notes"],
+                        "Pacjent czuł się dobrze.",
+                    )
 
 
 if __name__ == "__main__":

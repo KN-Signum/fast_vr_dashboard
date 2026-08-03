@@ -71,9 +71,20 @@ def build_session_report(
     if notes:
         story.extend(
             [
-                _section_heading("Notatki", styles),
+                _section_heading("Notatki przed sesją", styles),
                 Spacer(1, 2.5 * mm),
                 Paragraph(_paragraph_text(notes), styles["body"]),
+                Spacer(1, 5 * mm),
+            ]
+        )
+
+    post_session_notes = str(summary.get("post_session_notes") or "").strip()
+    if post_session_notes:
+        story.extend(
+            [
+                _section_heading("Notatki po sesji", styles),
+                Spacer(1, 2.5 * mm),
+                Paragraph(_paragraph_text(post_session_notes), styles["body"]),
                 Spacer(1, 5 * mm),
             ]
         )

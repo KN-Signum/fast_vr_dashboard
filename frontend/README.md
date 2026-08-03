@@ -27,6 +27,10 @@ between:
 - `HomeScreen`: controls, VR/ET preview, event timeline, and EEG plots;
 - `SessionSummaryScreen`: metadata, counts, observations, and downloads.
 
+Ending a session immediately stops and flushes recording, then opens a modal
+for optional post-session notes. The final summary and PDF distinguish notes
+entered before and after the session.
+
 State is separated into providers:
 
 | Provider | Responsibility |

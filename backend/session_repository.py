@@ -65,6 +65,7 @@ class SessionRepository:
                     patient_id TEXT NOT NULL,
                     preferred_hand TEXT NOT NULL,
                     notes TEXT NOT NULL,
+                    post_session_notes TEXT NOT NULL DEFAULT '',
                     eeg_enabled_at_start INTEGER NOT NULL DEFAULT 1,
                     status TEXT NOT NULL,
                     started_at TEXT NOT NULL,
@@ -117,6 +118,13 @@ class SessionRepository:
                     """
                     ALTER TABLE sessions
                     ADD COLUMN eeg_enabled_at_start INTEGER NOT NULL DEFAULT 1
+                    """
+                )
+            if "post_session_notes" not in columns:
+                connection.execute(
+                    """
+                    ALTER TABLE sessions
+                    ADD COLUMN post_session_notes TEXT NOT NULL DEFAULT ''
                     """
                 )
 
@@ -293,6 +301,35 @@ class SessionRepository:
             return self.summary(session_id)
         session = self.get_session(session_id)
         self._write_session_metadata(session)
+        return self.summary(session_id)
+
+    def update_post_session_notes(
+        self,
+        session_id: str,
+        notes: str,
+    ) -> dict[str, Any]:
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            session = connection.execute(
+                "SELECT status FROM sessions WHERE id = ?",
+                (session_id,),
+            ).fetchone()
+            if session is None:
+                raise SessionNotFoundError(f"Nie znaleziono sesji {session_id}")
+            if session["status"] == "active":
+                raise SessionStateError(
+                    "Notatki po sesji można zapisać dopiero po jej zakończeniu"
+                )
+            connection.execute(
+                """
+                UPDATE sessions
+                SET post_session_notes = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (notes, isoformat(utc_now()), session_id),
+            )
+        session_data = self.get_session(session_id)
+        self._write_session_metadata(session_data)
         return self.summary(session_id)
 
     def add_event(
@@ -478,6 +515,7 @@ class SessionRepository:
             "patient_id": session["patient_id"],
             "preferred_hand": session["preferred_hand"],
             "notes": session["notes"],
+            "post_session_notes": session["post_session_notes"],
             "eeg_enabled_at_start": bool(session["eeg_enabled_at_start"]),
             "status": session["status"],
             "started_at": session["started_at"],

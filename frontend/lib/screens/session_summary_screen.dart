@@ -102,11 +102,20 @@ class _MetadataCard extends StatelessWidget {
         if (session.notes.isNotEmpty) ...[
           const SizedBox(height: 10),
           Text(
-            'Notatki',
+            'Notatki przed sesją',
             style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 4),
           Text(session.notes),
+        ],
+        if (session.postSessionNotes.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text(
+            'Notatki po sesji',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 4),
+          Text(session.postSessionNotes),
         ],
       ],
     );

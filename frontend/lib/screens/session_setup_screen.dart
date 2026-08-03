@@ -248,7 +248,7 @@ class _SessionFormCard extends StatelessWidget {
             minLines: 3,
             maxLines: 5,
             decoration: appInputDecoration(
-              'Notatki',
+              'Notatki przed sesją',
             ).copyWith(alignLabelWithHint: true),
           ),
           const SizedBox(height: 20),

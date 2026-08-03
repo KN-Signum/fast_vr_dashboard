@@ -96,6 +96,17 @@ class SessionService:
                 await self._flush_drops(session_id)
             return await asyncio.to_thread(self.repository.end_session, session_id)
 
+    async def update_post_session_notes(
+        self,
+        session_id: str,
+        notes: str,
+    ) -> dict[str, Any]:
+        return await asyncio.to_thread(
+            self.repository.update_post_session_notes,
+            session_id,
+            notes,
+        )
+
     async def add_event(
         self,
         session_id: str,

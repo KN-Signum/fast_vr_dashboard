@@ -15,6 +15,11 @@ abstract interface class SessionApi {
 
   Future<Map<String, dynamic>> endSession(String sessionId);
 
+  Future<Map<String, dynamic>> updatePostSessionNotes({
+    required String sessionId,
+    required String notes,
+  });
+
   Future<Map<String, dynamic>> addEvent({
     required String sessionId,
     required String label,
@@ -80,6 +85,18 @@ class HttpSessionApi implements SessionApi {
   @override
   Future<Map<String, dynamic>> endSession(String sessionId) {
     return _requestMap('POST', '/api/sessions/$sessionId/end');
+  }
+
+  @override
+  Future<Map<String, dynamic>> updatePostSessionNotes({
+    required String sessionId,
+    required String notes,
+  }) {
+    return _requestMap(
+      'PUT',
+      '/api/sessions/$sessionId/post-session-notes',
+      body: {'notes': notes},
+    );
   }
 
   @override
