@@ -3,8 +3,16 @@ import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 import '../providers/web_socket_provider.dart';
 import '../theme/app_style.dart';
+import 'easel_direction_pad.dart';
 
 class ControlSection extends StatelessWidget {
+  static const _easelMovementActions = {
+    'move_easel_left',
+    'move_easel_right',
+    'move_easel_up',
+    'move_easel_down',
+  };
+
   const ControlSection({super.key});
 
   @override
@@ -133,10 +141,27 @@ class ControlSection extends StatelessWidget {
   }
 
   Widget _buildDynamicActions(GameProvider game, WebSocketProvider ws) {
+    final easelActions = game.gameActions
+        .map((action) => action['action'])
+        .whereType<String>()
+        .where(_easelMovementActions.contains)
+        .toSet();
+    final regularActions = game.gameActions.where(
+      (action) => !_easelMovementActions.contains(action['action']),
+    );
+
     return Column(
       children: [
+        if (easelActions.isNotEmpty) ...[
+          EaselDirectionPad(
+            availableActions: easelActions,
+            onAction: (action) =>
+                ws.sendMessage({"type": "command", "action": action}),
+          ),
+          const SizedBox(height: 12),
+        ],
         // Rysujemy przyciski przesłane przez Unity (SceneStateSync)
-        ...game.gameActions.map((actionData) {
+        ...regularActions.map((actionData) {
           final action = actionData['action'] as String;
           final label = _localizedActionLabel(actionData['label'] as String);
 
