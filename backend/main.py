@@ -54,6 +54,10 @@ class SessionEventRequest(BaseModel):
     note: str = Field(default="", max_length=4_000)
 
 
+class PostSessionNotesRequest(BaseModel):
+    notes: str = Field(default="", max_length=10_000)
+
+
 class EegControlRequest(BaseModel):
     enabled: bool
 
@@ -346,6 +350,21 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             return await session_service.end_session(session_id)
         except SessionNotFoundError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @app.put("/api/sessions/{session_id}/post-session-notes")
+    async def update_post_session_notes(
+        session_id: str,
+        request: PostSessionNotesRequest,
+    ) -> dict:
+        try:
+            return await session_service.update_post_session_notes(
+                session_id,
+                request.notes.strip(),
+            )
+        except SessionNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except SessionStateError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
 
     @app.get("/api/sessions/{session_id}/download/summary")
     async def download_session_summary(session_id: str) -> Response:

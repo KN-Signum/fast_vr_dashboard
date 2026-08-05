@@ -27,6 +27,15 @@ between:
 - `HomeScreen`: controls, VR/ET preview, event timeline, and EEG plots;
 - `SessionSummaryScreen`: metadata, counts, observations, and downloads.
 
+Ending a session immediately stops and flushes recording, then opens a modal
+for optional post-session notes. The final summary and PDF distinguish notes
+entered before and after the session.
+
+For completed sessions, the summary shows a descriptive ET heatmap based on
+valid normalized gaze projections, together with valid-data coverage and
+horizontal, vertical, and 3-by-3 regional percentages. Mock ET includes a
+moving projected gaze point so this view can be exercised without a headset.
+
 State is separated into providers:
 
 | Provider | Responsibility |

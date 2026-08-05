@@ -44,6 +44,7 @@ class SessionProvider with ChangeNotifier {
   String _patientId = '';
   String _preferredHand = 'not_specified';
   String _notes = '';
+  String _postSessionNotes = '';
   String _status = '';
   DateTime? _startedAt;
   DateTime? _endedAt;
@@ -59,6 +60,7 @@ class SessionProvider with ChangeNotifier {
   String get patientId => _patientId;
   String get preferredHand => _preferredHand;
   String get notes => _notes;
+  String get postSessionNotes => _postSessionNotes;
   String get status => _status;
   DateTime? get startedAt => _startedAt;
   DateTime? get endedAt => _endedAt;
@@ -138,6 +140,18 @@ class SessionProvider with ChangeNotifier {
     });
   }
 
+  Future<bool> updatePostSessionNotes(String notes) async {
+    final id = _sessionId;
+    if (_stage != SessionStage.summary || id == null) return false;
+    return _runOperation(() async {
+      final summary = await _api.updatePostSessionNotes(
+        sessionId: id,
+        notes: notes.trim(),
+      );
+      _applySummary(summary, stage: SessionStage.summary);
+    });
+  }
+
   Future<bool> addClinicianEvent({
     required String label,
     required String category,
@@ -166,6 +180,7 @@ class SessionProvider with ChangeNotifier {
     _patientId = '';
     _preferredHand = 'not_specified';
     _notes = '';
+    _postSessionNotes = '';
     _status = '';
     _startedAt = null;
     _endedAt = null;
@@ -206,6 +221,7 @@ class SessionProvider with ChangeNotifier {
     _patientId = summary['patient_id'] as String? ?? '';
     _preferredHand = summary['preferred_hand'] as String? ?? 'not_specified';
     _notes = summary['notes'] as String? ?? '';
+    _postSessionNotes = summary['post_session_notes'] as String? ?? '';
     _status = summary['status'] as String? ?? '';
     _startedAt = _parseDate(summary['started_at']);
     _endedAt = _parseDate(summary['ended_at']);

@@ -15,21 +15,21 @@ FlTitlesData _timeTitles({String leftSuffix = ''}) {
     leftTitles: AxisTitles(
       sideTitles: SideTitles(
         showTitles: true,
-        reservedSize: 34,
+        reservedSize: 40,
         getTitlesWidget: (value, _) => Text(
           '${value.toStringAsFixed(0)}$leftSuffix',
-          style: const TextStyle(fontSize: 7, color: Colors.black45),
+          style: const TextStyle(fontSize: 9, color: Colors.black87),
         ),
       ),
     ),
     bottomTitles: AxisTitles(
       sideTitles: SideTitles(
         showTitles: true,
-        reservedSize: 18,
+        reservedSize: 22,
         interval: 10,
         getTitlesWidget: (value, _) => Text(
           '${value.toStringAsFixed(0)} s',
-          style: const TextStyle(fontSize: 7, color: Colors.black45),
+          style: const TextStyle(fontSize: 9, color: Colors.black87),
         ),
       ),
     ),

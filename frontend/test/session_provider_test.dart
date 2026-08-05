@@ -57,6 +57,13 @@ void main() {
       expect(provider.stage, SessionStage.summary);
       expect(provider.summaryReport()['status'], 'completed');
       expect(provider.endedAt, isNotNull);
+
+      final updated = await provider.updatePostSessionNotes(
+        ' Patient felt well ',
+      );
+      expect(updated, isTrue);
+      expect(provider.postSessionNotes, 'Patient felt well');
+      expect(api.updatedPostSessionNotes, 'Patient felt well');
     });
 
     test('adds an observed event returned by the backend', () async {
@@ -102,6 +109,7 @@ Map<String, dynamic> sessionSummary({required String status}) {
     'patient_id': 'patient-001',
     'preferred_hand': 'right',
     'notes': 'Baseline',
+    'post_session_notes': '',
     'status': status,
     'started_at': '2026-01-02T03:04:05Z',
     'ended_at': status == 'active' ? null : '2026-01-02T03:05:05Z',
@@ -123,6 +131,7 @@ class FakeSessionApi implements SessionApi {
   Map<String, dynamic>? recovered;
   bool failCreate;
   String? createdPatientId;
+  String? updatedPostSessionNotes;
 
   FakeSessionApi({this.active, this.recovered, this.failCreate = false});
 
@@ -154,6 +163,17 @@ class FakeSessionApi implements SessionApi {
   Future<Map<String, dynamic>> endSession(String sessionId) async {
     active = null;
     return sessionSummary(status: 'completed');
+  }
+
+  @override
+  Future<Map<String, dynamic>> updatePostSessionNotes({
+    required String sessionId,
+    required String notes,
+  }) async {
+    updatedPostSessionNotes = notes;
+    final summary = sessionSummary(status: 'completed');
+    summary['post_session_notes'] = notes;
+    return summary;
   }
 
   @override

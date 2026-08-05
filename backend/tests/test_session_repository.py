@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import tempfile
 import unittest
 import zipfile
@@ -9,6 +10,7 @@ from pathlib import Path
 from session_repository import (
     ActiveSessionExistsError,
     SessionRepository,
+    SessionStateError,
 )
 
 
@@ -72,7 +74,16 @@ class SessionRepositoryTests(unittest.TestCase):
             category="support",
             note="Pacjent poprosił o przerwę",
         )
+        with self.assertRaises(SessionStateError):
+            self.repository.update_post_session_notes(
+                session_id,
+                "Nie można jeszcze zapisać",
+            )
         summary = self.repository.end_session(session_id)
+        summary = self.repository.update_post_session_notes(
+            session_id,
+            "Pacjent zgłosił lekkie zmęczenie.",
+        )
 
         self.assertEqual(summary["status"], "completed")
         self.assertFalse(summary["eeg_enabled_at_start"])
@@ -82,6 +93,10 @@ class SessionRepositoryTests(unittest.TestCase):
         self.assertEqual(summary["counts"]["vr_frames"], 1)
         self.assertEqual(summary["counts"]["session_events"], 1)
         self.assertEqual(summary["session_events"][0]["id"], event["id"])
+        self.assertEqual(
+            summary["post_session_notes"],
+            "Pacjent zgłosił lekkie zmęczenie.",
+        )
 
         archive = self.repository.create_raw_archive(
             session_id,
@@ -102,6 +117,10 @@ class SessionRepositoryTests(unittest.TestCase):
             exported_summary = json.loads(raw_data.read("session.json"))
             self.assertEqual(exported_summary["session_id"], session_id)
             self.assertFalse(exported_summary["eeg_enabled_at_start"])
+            self.assertEqual(
+                exported_summary["post_session_notes"],
+                "Pacjent zgłosił lekkie zmęczenie.",
+            )
             exported_events = [
                 json.loads(line)
                 for line in raw_data.read("session_events.ndjson")
@@ -123,6 +142,37 @@ class SessionRepositoryTests(unittest.TestCase):
                 preferred_hand="right",
                 notes="",
             )
+
+    def test_adds_post_session_notes_column_to_existing_database(self) -> None:
+        database_path = self.root / "legacy.sqlite3"
+        connection = sqlite3.connect(database_path)
+        try:
+            connection.execute(
+                """
+                CREATE TABLE sessions (
+                    id TEXT PRIMARY KEY,
+                    status TEXT NOT NULL,
+                    recovery_pending INTEGER NOT NULL DEFAULT 0,
+                    eeg_enabled_at_start INTEGER NOT NULL DEFAULT 1
+                )
+                """
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        repository = SessionRepository(database_path, self.root / "legacy-sessions")
+        repository.initialize()
+
+        connection = sqlite3.connect(database_path)
+        try:
+            columns = {
+                row[1]
+                for row in connection.execute("PRAGMA table_info(sessions)").fetchall()
+            }
+        finally:
+            connection.close()
+        self.assertIn("post_session_notes", columns)
 
     def test_active_session_is_marked_interrupted_during_recovery(self) -> None:
         created = self.repository.create_session(

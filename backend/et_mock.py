@@ -1,4 +1,5 @@
 import asyncio
+import math
 import random
 from dataclasses import dataclass, asdict
 
@@ -27,10 +28,12 @@ class EyeTrackingData:
     player_position: Vector3 = None
     eyes_position: Vector3 = None
     eyes_transform: EyeTransform = None
+    gaze_screen_x: float | None = None
+    gaze_screen_y: float | None = None
 
     def to_dict(self) -> dict:
         """Convert to JSON-serializable dict matching the agreed protocol schema."""
-        return {
+        payload = {
             "type": self.type,
             "player_position": asdict(self.player_position),
             "eyes_position": asdict(self.eyes_position),
@@ -41,6 +44,10 @@ class EyeTrackingData:
                 "origin": asdict(self.eyes_transform.origin),
             },
         }
+        if self.gaze_screen_x is not None and self.gaze_screen_y is not None:
+            payload["gaze_screen_x"] = self.gaze_screen_x
+            payload["gaze_screen_y"] = self.gaze_screen_y
+        return payload
 
 
 # --- Mock stream ---
@@ -62,6 +69,7 @@ async def eye_tracking_mock_task(manager) -> None:
 
     base_player_pos = Vector3(x=120.0, y=3.0, z=95.0)
     base_eyes_pos = Vector3(x=120.0, y=3.65, z=95.0)
+    phase = 0.0
 
     try:
         while et_stream_enabled:
@@ -82,9 +90,12 @@ async def eye_tracking_mock_task(manager) -> None:
                     z_axis=z_axis,
                     origin=Vector3(x=eyes_x, y=eyes_y, z=eyes_z),
                 ),
+                gaze_screen_x=0.55 + 0.4 * math.sin(phase),
+                gaze_screen_y=0.5 + 0.35 * math.cos(phase * 0.7),
             )
 
             await manager.broadcast_json(et_data.to_dict())
+            phase += 0.08
             await asyncio.sleep(0.05)
 
     except asyncio.CancelledError:

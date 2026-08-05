@@ -4,6 +4,7 @@ import 'package:web/web.dart' as web;
 
 import '../providers/session_provider.dart';
 import '../theme/app_style.dart' hide MetricTile;
+import '../widgets/eye_tracking_summary_card.dart';
 
 class SessionSummaryScreen extends StatelessWidget {
   const SessionSummaryScreen({super.key});
@@ -39,6 +40,14 @@ class SessionSummaryScreen extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  EyeTrackingSummaryCard(
+                    analysis: report['eye_tracking_analysis'] is Map
+                        ? Map<String, dynamic>.from(
+                            report['eye_tracking_analysis'] as Map,
+                          )
+                        : null,
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   _DownloadCard(session: session),
@@ -102,11 +111,20 @@ class _MetadataCard extends StatelessWidget {
         if (session.notes.isNotEmpty) ...[
           const SizedBox(height: 10),
           Text(
-            'Notatki',
+            'Notatki przed sesją',
             style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 4),
           Text(session.notes),
+        ],
+        if (session.postSessionNotes.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text(
+            'Notatki po sesji',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 4),
+          Text(session.postSessionNotes),
         ],
       ],
     );

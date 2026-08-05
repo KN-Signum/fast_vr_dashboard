@@ -65,4 +65,31 @@ void main() {
       ),
     );
   });
+
+  test('updates post-session notes', () async {
+    late http.Request captured;
+    final api = HttpSessionApi(
+      baseUri: Uri.parse('http://localhost:8080'),
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response(
+          json.encode({
+            'session_id': 'session-001',
+            'post_session_notes': 'Patient felt well',
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await api.updatePostSessionNotes(
+      sessionId: 'session-001',
+      notes: 'Patient felt well',
+    );
+
+    expect(captured.method, 'PUT');
+    expect(captured.url.path, '/api/sessions/session-001/post-session-notes');
+    expect(json.decode(captured.body), {'notes': 'Patient felt well'});
+  });
 }
