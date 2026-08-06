@@ -4,6 +4,7 @@ import 'package:web/web.dart' as web;
 
 import '../providers/session_provider.dart';
 import '../theme/app_style.dart' hide MetricTile;
+import '../utils/download_filename.dart';
 import '../widgets/eye_tracking_summary_card.dart';
 
 class SessionSummaryScreen extends StatelessWidget {
@@ -196,6 +197,7 @@ class _DownloadCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sessionId = session.sessionId ?? 'session';
+    final patientId = session.patientId;
     final summaryUri = session.summaryDownloadUri;
     final rawUri = session.rawDownloadUri;
 
@@ -209,8 +211,10 @@ class _DownloadCard extends StatelessWidget {
               child: ElevatedButton.icon(
                 onPressed: summaryUri == null
                     ? null
-                    : () =>
-                          _download(summaryUri, 'raport_sesji_$sessionId.pdf'),
+                    : () => _download(
+                        summaryUri,
+                        sessionReportFilename(patientId, sessionId),
+                      ),
                 icon: const Icon(Icons.picture_as_pdf),
                 label: const Text('Pobierz raport'),
               ),
@@ -220,7 +224,10 @@ class _DownloadCard extends StatelessWidget {
               child: ElevatedButton.icon(
                 onPressed: rawUri == null
                     ? null
-                    : () => _download(rawUri, 'raw_data_$sessionId.zip'),
+                    : () => _download(
+                        rawUri,
+                        sessionRawDataFilename(patientId, sessionId),
+                      ),
                 icon: const Icon(Icons.data_object),
                 label: const Text('Pobierz dane surowe'),
               ),

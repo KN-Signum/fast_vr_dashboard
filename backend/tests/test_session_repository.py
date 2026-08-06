@@ -102,6 +102,9 @@ class SessionRepositoryTests(unittest.TestCase):
             session_id,
             self.root / "exports",
         )
+        self.assertTrue(
+            archive.name.startswith(f"raw_data_patient-001_{session_id}_")
+        )
         with zipfile.ZipFile(archive) as raw_data:
             self.assertEqual(
                 set(raw_data.namelist()),

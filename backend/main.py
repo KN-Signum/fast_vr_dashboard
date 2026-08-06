@@ -19,6 +19,7 @@ from beacon_manager import BeaconManager
 from config import AppSettings
 from connection_manager import ConnectionManager
 from eeg_service import create_eeg_service
+from filename_utils import safe_filename_part
 from paths import AppPaths
 from session_repository import (
     ActiveSessionExistsError,
@@ -377,12 +378,16 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             summary,
             app_version=resolved_settings.app_version,
         )
+        patient_id = safe_filename_part(
+            summary["patient_id"],
+            fallback="pacjent",
+        )
         return Response(
             content=report,
             media_type="application/pdf",
             headers={
                 "Content-Disposition": (
-                    f'attachment; filename="raport_sesji_{session_id}.pdf"'
+                    f'attachment; filename="raport_sesji_{patient_id}_{session_id}.pdf"'
                 )
             },
         )
@@ -391,12 +396,14 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     async def download_session_raw_data(session_id: str) -> FileResponse:
         try:
             archive = await session_service.raw_archive(session_id)
+            patient_id = await session_service.patient_id(session_id)
         except SessionNotFoundError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
+        safe_patient_id = safe_filename_part(patient_id, fallback="pacjent")
         return FileResponse(
             archive,
             media_type="application/zip",
-            filename=f"raw_data_{session_id}.zip",
+            filename=f"raw_data_{safe_patient_id}_{session_id}.zip",
             background=BackgroundTask(archive.unlink, missing_ok=True),
         )
 

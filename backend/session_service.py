@@ -136,6 +136,10 @@ class SessionService:
         await self._flush_active_session(session_id)
         return await asyncio.to_thread(self.repository.summary, session_id)
 
+    async def patient_id(self, session_id: str) -> str:
+        session = await asyncio.to_thread(self.repository.get_session, session_id)
+        return session["patient_id"]
+
     async def raw_archive(self, session_id: str) -> Path:
         await self._flush_active_session(session_id)
         return await asyncio.to_thread(

@@ -50,7 +50,10 @@ class _AppShellState extends State<AppShell> {
 
     _subscription = wsProvider.stream.listen((message) {
       if (message is String) {
-        gameProvider.handleMessage(message);
+        gameProvider.handleMessage(
+          message,
+          patientId: sessionProvider.patientId,
+        );
       }
     });
 

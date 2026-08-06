@@ -4,6 +4,7 @@ import 'package:web/web.dart' as web;
 import 'dart:js_interop';
 
 import '../models/bird_count_state.dart';
+import '../utils/download_filename.dart';
 
 export '../models/bird_count_state.dart' show BirdSide;
 
@@ -24,7 +25,7 @@ class GameProvider with ChangeNotifier {
   int get reportedBirdCountRight => _birdCounts.reportedRight;
 
   // Główny mózg odbierania komunikatów JSON
-  void handleMessage(String message) {
+  void handleMessage(String message, {String patientId = ''}) {
     try {
       final data = json.decode(message);
 
@@ -51,11 +52,11 @@ class GameProvider with ChangeNotifier {
 
           // Obsługa pobierania obrazu (Twoja stara logika - zostawiamy!)
           case 'canvas_image':
-            _downloadCanvasImage(data);
+            _downloadCanvasImage(data, patientId: patientId);
             break;
 
           case 'action_completed':
-            _handleActionCompleted(data);
+            _handleActionCompleted(data, patientId: patientId);
             break;
 
           case 'bird_count':
@@ -97,10 +98,13 @@ class GameProvider with ChangeNotifier {
 
   // --- LOGIKA POMOCNICZA (Twoje stare funkcje) ---
 
-  void _handleActionCompleted(Map<String, dynamic> data) {
+  void _handleActionCompleted(
+    Map<String, dynamic> data, {
+    required String patientId,
+  }) {
     debugPrint('✅ Akcja zakończona: ${data['action']}');
     if (data.containsKey('image_base64')) {
-      _downloadCanvasImage(data);
+      _downloadCanvasImage(data, patientId: patientId);
     }
   }
 
@@ -112,7 +116,10 @@ class GameProvider with ChangeNotifier {
     }
   }
 
-  void _downloadCanvasImage(Map<String, dynamic> data) {
+  void _downloadCanvasImage(
+    Map<String, dynamic> data, {
+    required String patientId,
+  }) {
     try {
       final base64Image = data['image_base64'] as String?;
       final format = data['format'] as String? ?? 'png';
@@ -124,8 +131,11 @@ class GameProvider with ChangeNotifier {
       final anchor = web.document.createElement('a') as web.HTMLAnchorElement;
 
       anchor.href = url;
-      anchor.download =
-          'wynik_badania_${DateTime.now().millisecondsSinceEpoch}.$format';
+      anchor.download = paintingFilename(
+        patientId,
+        DateTime.now().millisecondsSinceEpoch,
+        format,
+      );
       anchor.click();
       web.URL.revokeObjectURL(url);
     } catch (e) {

@@ -286,7 +286,7 @@ class SessionApiTests(unittest.TestCase):
                     report_response.headers["content-type"], "application/pdf"
                 )
                 self.assertIn(
-                    f'filename="raport_sesji_{session_id}.pdf"',
+                    f'filename="raport_sesji_patient-001_{session_id}.pdf"',
                     report_response.headers["content-disposition"],
                 )
                 self.assertTrue(report_response.content.startswith(b"%PDF-"))
@@ -296,6 +296,10 @@ class SessionApiTests(unittest.TestCase):
                 )
                 self.assertEqual(raw_response.status_code, 200)
                 self.assertEqual(raw_response.headers["content-type"], "application/zip")
+                self.assertIn(
+                    f'filename="raw_data_patient-001_{session_id}.zip"',
+                    raw_response.headers["content-disposition"],
+                )
                 with zipfile.ZipFile(io.BytesIO(raw_response.content)) as archive:
                     self.assertIn("eeg.ndjson", archive.namelist())
                     self.assertIn("session.json", archive.namelist())

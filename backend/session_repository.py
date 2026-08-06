@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator
 
 from eye_tracking_analysis import analyze_eye_tracking
+from filename_utils import safe_filename_part
 
 
 STREAM_FILES = {
@@ -544,10 +545,14 @@ class SessionRepository:
 
     def create_raw_archive(self, session_id: str, export_dir: Path) -> Path:
         summary = self.summary(session_id)
+        patient_id = safe_filename_part(
+            summary["patient_id"],
+            fallback="pacjent",
+        )
         directory = self.session_directory(session_id)
         export_dir.mkdir(parents=True, exist_ok=True)
         temporary = tempfile.NamedTemporaryFile(
-            prefix=f"raw_data_{session_id}_",
+            prefix=f"raw_data_{patient_id}_{session_id}_",
             suffix=".zip",
             dir=export_dir,
             delete=False,
