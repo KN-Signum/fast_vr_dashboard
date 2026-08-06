@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../features/solitaire/solitaire_overlay.dart';
 import '../providers/eeg_provider.dart';
 import '../providers/eeg_control_provider.dart';
 import '../providers/eye_tracking_provider.dart';
@@ -25,6 +26,7 @@ class _AppShellState extends State<AppShell> {
   StreamSubscription? _subscription;
   SessionProvider? _sessionProvider;
   SessionStage _lastSessionStage = SessionStage.loading;
+  bool _solitaireVisible = false;
 
   @override
   void initState() {
@@ -89,13 +91,43 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final stage = context.watch<SessionProvider>().stage;
-
-    return switch (stage) {
+    final screen = switch (stage) {
       SessionStage.loading => const _SessionLoadingScreen(),
       SessionStage.setup => const SessionSetupScreen(),
       SessionStage.active => const HomeScreen(),
       SessionStage.summary => const SessionSummaryScreen(),
     };
+
+    return Stack(
+      children: [
+        Positioned.fill(child: screen),
+        if (stage != SessionStage.loading)
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: Material(
+              color: Colors.white,
+              elevation: 3,
+              borderRadius: BorderRadius.circular(8),
+              child: Tooltip(
+                message: 'Pasjans',
+                child: IconButton(
+                  key: const ValueKey('solitaire-launcher'),
+                  onPressed: () => setState(() => _solitaireVisible = true),
+                  color: Theme.of(context).colorScheme.primary,
+                  icon: const Icon(Icons.style_outlined),
+                ),
+              ),
+            ),
+          ),
+        Positioned.fill(
+          child: SolitaireOverlay(
+            visible: _solitaireVisible,
+            onClose: () => setState(() => _solitaireVisible = false),
+          ),
+        ),
+      ],
+    );
   }
 }
 
