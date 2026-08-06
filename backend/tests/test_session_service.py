@@ -52,6 +52,16 @@ class SessionServiceTests(unittest.IsolatedAsyncioTestCase):
             {"type": "command", "action": "pause"},
             sender_role="dashboard",
         )
+        self.service.record_json(
+            {
+                "type": "bird_observation",
+                "side": "left",
+                "delta": 1,
+                "reported_left": 1,
+                "reported_right": 0,
+            },
+            sender_role="dashboard",
+        )
         self.service.record_binary(b"\xff\xd8frame", sender_role="vr")
         await self.service.add_event(
             session_id,
@@ -64,7 +74,7 @@ class SessionServiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(summary["counts"]["eeg_records"], 1)
         self.assertEqual(summary["counts"]["eye_tracking_records"], 1)
-        self.assertEqual(summary["counts"]["vr_events"], 2)
+        self.assertEqual(summary["counts"]["vr_events"], 3)
         self.assertEqual(summary["counts"]["vr_frames"], 1)
         self.assertEqual(summary["counts"]["session_events"], 1)
         self.assertFalse(summary["eeg_enabled_at_start"])
@@ -81,6 +91,13 @@ class SessionServiceTests(unittest.IsolatedAsyncioTestCase):
         simulated = next(record for record in records if record.get("simulated"))
         self.assertEqual(simulated["source_role"], "vr_simulator")
         self.assertEqual(simulated["payload"]["current_view"], "painting")
+        observation = next(
+            record
+            for record in records
+            if record["payload"].get("type") == "bird_observation"
+        )
+        self.assertEqual(observation["source_role"], "dashboard")
+        self.assertEqual(observation["payload"]["side"], "left")
 
 
 if __name__ == "__main__":

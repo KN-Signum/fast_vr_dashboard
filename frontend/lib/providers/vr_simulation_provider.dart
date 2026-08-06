@@ -37,6 +37,8 @@ class WebSocketVrSimulationConnection implements VrSimulationConnection {
 
 class VrSimulationEngine {
   static const visibleBirdCount = 8;
+  static const visibleBirdCountLeft = 4;
+  static const visibleBirdCountRight = 4;
 
   static const Map<String, List<Map<String, String>>> screenActions = {
     'info': [
@@ -137,7 +139,12 @@ class VrSimulationEngine {
   List<Map<String, dynamic>> _currentStateResponses() => [
     _stateUpdate(),
     if (currentScreen == 'forest')
-      {'type': 'bird_count', 'visible': visibleBirdCount},
+      {
+        'type': 'bird_count',
+        'visible': visibleBirdCount,
+        'left': visibleBirdCountLeft,
+        'right': visibleBirdCountRight,
+      },
   ];
 
   List<Map<String, dynamic>> _setResponses(

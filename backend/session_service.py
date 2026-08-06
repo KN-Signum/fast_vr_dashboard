@@ -150,6 +150,11 @@ class SessionService:
             self._enqueue("eeg_records", {"payload": payload})
         elif message_type == "eye_tracking":
             self._enqueue("eye_tracking_records", {"payload": payload})
+        elif sender_role == "dashboard" and message_type == "bird_observation":
+            self._enqueue(
+                "vr_events",
+                {"payload": payload, "source_role": "dashboard"},
+            )
         elif sender_role != "dashboard":
             record: dict[str, Any] = {"payload": payload}
             if sender_role == "vr_simulator":

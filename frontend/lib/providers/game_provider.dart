@@ -3,17 +3,25 @@ import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
 import 'dart:js_interop';
 
+import '../models/bird_count_state.dart';
+
+export '../models/bird_count_state.dart' show BirdSide;
+
 class GameProvider with ChangeNotifier {
   // Stan ekranu: 'info', 'menu', 'forest', 'painting'
   String _currentScreen = 'info';
 
   // Lista akcji: Teraz używamy Map, żeby trzymać też etykiety przycisków
   List<Map<String, dynamic>> _gameActions = [];
-  int? _visibleBirdCount;
+  final BirdCountState _birdCounts = BirdCountState();
 
   String get currentScreen => _currentScreen;
   List<Map<String, dynamic>> get gameActions => _gameActions;
-  int? get visibleBirdCount => _visibleBirdCount;
+  int? get visibleBirdCount => _birdCounts.visible;
+  int? get visibleBirdCountLeft => _birdCounts.visibleLeft;
+  int? get visibleBirdCountRight => _birdCounts.visibleRight;
+  int get reportedBirdCountLeft => _birdCounts.reportedLeft;
+  int get reportedBirdCountRight => _birdCounts.reportedRight;
 
   // Główny mózg odbierania komunikatów JSON
   void handleMessage(String message) {
@@ -26,7 +34,9 @@ class GameProvider with ChangeNotifier {
         switch (type) {
           // --- NOWY KLUCZOWY CASE: Synchronizacja stanu z Unity ---
           case 'state_update':
-            _currentScreen = data['current_view'] ?? 'menu';
+            final nextScreen = data['current_view'] as String? ?? 'menu';
+            _birdCounts.updateScene(nextScreen);
+            _currentScreen = nextScreen;
             // Przyjmujemy listę akcji z Unity, np. [{"action": "clear_palette", "label": "Wyczyść"}]
             if (data.containsKey('available_actions')) {
               _gameActions = List<Map<String, dynamic>>.from(
@@ -51,7 +61,13 @@ class GameProvider with ChangeNotifier {
           case 'bird_count':
             final visible = data['visible'];
             if (visible is num) {
-              _visibleBirdCount = visible.toInt();
+              final left = data['left'];
+              final right = data['right'];
+              _birdCounts.updateVisible(
+                total: visible.toInt(),
+                left: left is num ? left.toInt() : null,
+                right: right is num ? right.toInt() : null,
+              );
               notifyListeners();
             }
             break;
@@ -71,6 +87,12 @@ class GameProvider with ChangeNotifier {
     } catch (e) {
       _handleNonJsonFallback(message); // Logika Base64, którą miałeś wcześniej
     }
+  }
+
+  bool adjustReportedBirdCount(BirdSide side, int delta) {
+    if (!_birdCounts.adjustReported(side, delta)) return false;
+    notifyListeners();
+    return true;
   }
 
   // --- LOGIKA POMOCNICZA (Twoje stare funkcje) ---

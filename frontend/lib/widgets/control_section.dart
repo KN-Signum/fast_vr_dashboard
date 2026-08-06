@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 import '../providers/web_socket_provider.dart';
 import '../theme/app_style.dart';
+import 'bird_count_panel.dart';
 import 'easel_direction_pad.dart';
 
 class ControlSection extends StatelessWidget {
@@ -154,29 +155,35 @@ class ControlSection extends StatelessWidget {
       children: [
         if (game.currentScreen == 'forest' &&
             game.visibleBirdCount != null) ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceAlt,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.border),
+          BirdCountPanel(
+            visible: game.visibleBirdCount!,
+            visibleLeft: game.visibleBirdCountLeft,
+            visibleRight: game.visibleBirdCountRight,
+            reportedLeft: game.reportedBirdCountLeft,
+            reportedRight: game.reportedBirdCountRight,
+            onIncrementLeft: () => _adjustBirdCount(
+              game: game,
+              ws: ws,
+              side: BirdSide.left,
+              delta: 1,
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.flutter_dash, size: 18, color: Colors.teal),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Widoczne ptaki: ${game.visibleBirdCount}',
-                    style: const TextStyle(
-                      color: AppColors.text,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
+            onDecrementLeft: () => _adjustBirdCount(
+              game: game,
+              ws: ws,
+              side: BirdSide.left,
+              delta: -1,
+            ),
+            onIncrementRight: () => _adjustBirdCount(
+              game: game,
+              ws: ws,
+              side: BirdSide.right,
+              delta: 1,
+            ),
+            onDecrementRight: () => _adjustBirdCount(
+              game: game,
+              ws: ws,
+              side: BirdSide.right,
+              delta: -1,
             ),
           ),
           const SizedBox(height: 12),
@@ -207,6 +214,25 @@ class ControlSection extends StatelessWidget {
         }),
       ],
     );
+  }
+
+  void _adjustBirdCount({
+    required GameProvider game,
+    required WebSocketProvider ws,
+    required BirdSide side,
+    required int delta,
+  }) {
+    if (!game.adjustReportedBirdCount(side, delta)) return;
+
+    ws.sendMessage({
+      'type': 'bird_observation',
+      'side': side.name,
+      'delta': delta,
+      'reported_left': game.reportedBirdCountLeft,
+      'reported_right': game.reportedBirdCountRight,
+      'visible_left': game.visibleBirdCountLeft,
+      'visible_right': game.visibleBirdCountRight,
+    });
   }
 
   // Pomocniczy widget przycisku, żeby kod był czysty

@@ -44,6 +44,8 @@ void main() {
         'bird_count',
       ]);
       expect(responses.last['visible'], VrSimulationEngine.visibleBirdCount);
+      expect(responses.last['left'], VrSimulationEngine.visibleBirdCountLeft);
+      expect(responses.last['right'], VrSimulationEngine.visibleBirdCountRight);
 
       responses = engine.processCommand(_command('back_to_menu'));
       expect(engine.currentScreen, 'info');
