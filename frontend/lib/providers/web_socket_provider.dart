@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:web_socket_channel/html.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../utils/backend_url.dart';
 
@@ -58,8 +57,7 @@ class WebSocketProvider with ChangeNotifier {
       _status = 'Łączenie...';
       notifyListeners();
 
-      final ch = HtmlWebSocketChannel.connect(url);
-      ch.innerWebSocket.binaryType = 'arraybuffer';
+      final ch = WebSocketChannel.connect(Uri.parse(url));
       _channel = ch;
       _isConnected = true;
       _status = 'Połączony';

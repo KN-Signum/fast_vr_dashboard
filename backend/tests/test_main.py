@@ -224,6 +224,18 @@ class SessionApiTests(unittest.TestCase):
                 with client.websocket_connect("/ws?role=dashboard") as websocket:
                     websocket.send_json({"type": "command", "action": "pause"})
 
+                with client.websocket_connect("/ws?role=dashboard") as dashboard:
+                    with client.websocket_connect(
+                        "/ws?role=vr_simulator"
+                    ) as simulator:
+                        simulated_state = {
+                            "type": "state_update",
+                            "current_view": "painting",
+                            "available_actions": [],
+                        }
+                        simulator.send_json(simulated_state)
+                        self.assertEqual(dashboard.receive_json(), simulated_state)
+
                 event_response = client.post(
                     f"/api/sessions/{session_id}/events",
                     json={
@@ -247,7 +259,7 @@ class SessionApiTests(unittest.TestCase):
                 self.assertFalse(summary["eeg_enabled_at_start"])
                 self.assertEqual(summary["counts"]["eeg_records"], 1)
                 self.assertEqual(summary["counts"]["eye_tracking_records"], 1)
-                self.assertEqual(summary["counts"]["vr_events"], 1)
+                self.assertEqual(summary["counts"]["vr_events"], 2)
                 self.assertEqual(summary["counts"]["vr_frames"], 1)
                 self.assertEqual(summary["counts"]["session_events"], 1)
                 self.assertEqual(
@@ -287,6 +299,17 @@ class SessionApiTests(unittest.TestCase):
                 with zipfile.ZipFile(io.BytesIO(raw_response.content)) as archive:
                     self.assertIn("eeg.ndjson", archive.namelist())
                     self.assertIn("session.json", archive.namelist())
+                    vr_events = [
+                        json.loads(line)
+                        for line in archive.read("vr_events.ndjson")
+                        .decode("utf-8")
+                        .splitlines()
+                    ]
+                    simulated = next(
+                        record for record in vr_events if record.get("simulated")
+                    )
+                    self.assertEqual(simulated["source_role"], "vr_simulator")
+                    self.assertEqual(simulated["payload"], simulated_state)
                     exported_summary = json.loads(archive.read("session.json"))
                     self.assertEqual(
                         exported_summary["post_session_notes"],

@@ -8,6 +8,7 @@ import '../providers/eeg_control_provider.dart';
 import '../providers/eye_tracking_provider.dart';
 import '../providers/session_provider.dart';
 import '../providers/web_socket_provider.dart';
+import '../providers/vr_simulation_provider.dart';
 import '../theme/app_style.dart';
 
 class SessionSetupScreen extends StatefulWidget {
@@ -57,6 +58,7 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
     final eegControl = context.watch<EegControlProvider>();
     final eyeTracking = context.watch<EyeTrackingProvider>();
     final session = context.watch<SessionProvider>();
+    final vrSimulation = context.watch<VrSimulationProvider>();
     final patientId = _patientIdController.text.trim();
 
     return Scaffold(
@@ -120,16 +122,25 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
                             eegControl.isAvailable &&
                             !eegControl.isBusy,
                         eegToggleBusy: eegControl.isBusy,
-                        vrOnline: _isRecent(ws.lastFrameAt),
+                        vrOnline:
+                            vrSimulation.connected || _isRecent(ws.lastFrameAt),
+                        vrSimulationEnabled: vrSimulation.enabled,
+                        vrSimulationToggleEnabled:
+                            ws.isConnected && !vrSimulation.connecting,
                         eyeTrackingOnline: eyeTracking.isReceiving,
                         backendDetail: ws.status,
                         eegDetail: _eegDetail(eegControl, eeg),
                         onEegEnabledChanged: (enabled) {
                           unawaited(eegControl.setEnabled(enabled));
                         },
-                        vrDetail: ws.lastFrameAt == null
-                            ? 'Oczekiwanie na podgląd wideo'
-                            : 'Ostatnia klatka ${_formatAge(ws.lastFrameAt!)} temu',
+                        vrDetail: _vrDetail(ws, vrSimulation),
+                        onVrSimulationChanged: (enabled) {
+                          if (enabled) {
+                            unawaited(vrSimulation.enable());
+                          } else {
+                            vrSimulation.disable();
+                          }
+                        },
                         eyeTrackingDetail: ws.lastEyeTrackingAt == null
                             ? 'Oczekiwanie na dane z gogli'
                             : 'Ostatni punkt wzroku ${_formatAge(ws.lastEyeTrackingAt!)} temu',
@@ -171,6 +182,17 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
     }
     if (eeg.latest == null) return 'Oczekiwanie na dane EEG';
     return 'Ostatnie EEG ${_formatAge(eeg.latest!.timestamp)} temu';
+  }
+
+  String _vrDetail(
+    WebSocketProvider websocket,
+    VrSimulationProvider simulation,
+  ) {
+    if (simulation.connecting) return 'Uruchamianie symulatora VR';
+    if (simulation.error != null) return simulation.error!;
+    if (simulation.connected) return 'Aktywna symulacja bez gogli';
+    if (websocket.lastFrameAt == null) return 'Oczekiwanie na podgląd wideo';
+    return 'Ostatnia klatka ${_formatAge(websocket.lastFrameAt!)} temu';
   }
 }
 
@@ -283,12 +305,15 @@ class _ConnectionStatusCard extends StatelessWidget {
   final bool eegToggleEnabled;
   final bool eegToggleBusy;
   final bool vrOnline;
+  final bool vrSimulationEnabled;
+  final bool vrSimulationToggleEnabled;
   final bool eyeTrackingOnline;
   final String backendDetail;
   final String eegDetail;
   final String vrDetail;
   final String eyeTrackingDetail;
   final ValueChanged<bool> onEegEnabledChanged;
+  final ValueChanged<bool> onVrSimulationChanged;
 
   const _ConnectionStatusCard({
     required this.backendOnline,
@@ -297,12 +322,15 @@ class _ConnectionStatusCard extends StatelessWidget {
     required this.eegToggleEnabled,
     required this.eegToggleBusy,
     required this.vrOnline,
+    required this.vrSimulationEnabled,
+    required this.vrSimulationToggleEnabled,
     required this.eyeTrackingOnline,
     required this.backendDetail,
     required this.eegDetail,
     required this.vrDetail,
     required this.eyeTrackingDetail,
     required this.onEegEnabledChanged,
+    required this.onVrSimulationChanged,
   });
 
   @override
@@ -361,6 +389,26 @@ class _ConnectionStatusCard extends StatelessWidget {
             label: 'VR',
             online: vrOnline,
             detail: vrDetail,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Symulacja',
+                  style: TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Switch(
+                  key: const Key('vr-simulation-switch'),
+                  value: vrSimulationEnabled,
+                  onChanged: vrSimulationToggleEnabled
+                      ? onVrSimulationChanged
+                      : null,
+                ),
+              ],
+            ),
           ),
           _StatusRow(
             icon: Icons.visibility,

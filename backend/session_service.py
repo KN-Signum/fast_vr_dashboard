@@ -151,7 +151,15 @@ class SessionService:
         elif message_type == "eye_tracking":
             self._enqueue("eye_tracking_records", {"payload": payload})
         elif sender_role != "dashboard":
-            self._enqueue("vr_events", {"payload": payload})
+            record: dict[str, Any] = {"payload": payload}
+            if sender_role == "vr_simulator":
+                record.update(
+                    {
+                        "simulated": True,
+                        "source_role": "vr_simulator",
+                    }
+                )
+            self._enqueue("vr_events", record)
 
     def record_binary(self, data: bytes, sender_role: str | None) -> None:
         if sender_role == "dashboard":

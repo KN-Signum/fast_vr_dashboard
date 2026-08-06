@@ -9,9 +9,11 @@ class GameProvider with ChangeNotifier {
 
   // Lista akcji: Teraz używamy Map, żeby trzymać też etykiety przycisków
   List<Map<String, dynamic>> _gameActions = [];
+  int? _visibleBirdCount;
 
   String get currentScreen => _currentScreen;
   List<Map<String, dynamic>> get gameActions => _gameActions;
+  int? get visibleBirdCount => _visibleBirdCount;
 
   // Główny mózg odbierania komunikatów JSON
   void handleMessage(String message) {
@@ -44,6 +46,14 @@ class GameProvider with ChangeNotifier {
 
           case 'action_completed':
             _handleActionCompleted(data);
+            break;
+
+          case 'bird_count':
+            final visible = data['visible'];
+            if (visible is num) {
+              _visibleBirdCount = visible.toInt();
+              notifyListeners();
+            }
             break;
 
           case 'eye_tracking':

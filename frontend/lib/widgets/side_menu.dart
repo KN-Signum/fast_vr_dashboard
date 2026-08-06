@@ -7,6 +7,7 @@ import '../providers/eeg_provider.dart';
 import '../providers/eye_tracking_provider.dart';
 import '../providers/session_provider.dart';
 import '../providers/web_socket_provider.dart';
+import '../providers/vr_simulation_provider.dart';
 import '../theme/app_style.dart';
 import 'control_section.dart';
 import 'post_session_notes_dialog.dart';
@@ -57,7 +58,7 @@ class SideMenu extends StatelessWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
             decoration: const BoxDecoration(
               border: Border(top: BorderSide(color: AppColors.border)),
             ),
@@ -72,9 +73,14 @@ class SideMenu extends StatelessWidget {
                     color: AppColors.muted,
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Image.asset("images/signum_light.png", height: 50),
+                const SizedBox(height: 8),
+                Image.asset(
+                  'assets/images/signum_light.png',
+                  height: 52,
+                  width: double.infinity,
+                  alignment: Alignment.centerLeft,
+                  fit: BoxFit.contain,
+                  semanticLabel: 'Logo KN Signum',
                 ),
               ],
             ),
@@ -138,63 +144,9 @@ class _SessionHeader extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(color: Color(0xFFCFE2F7), fontSize: 11),
           ),
-          const SizedBox(height: 12),
-          const _ElapsedTimer(),
         ],
       ),
     );
-  }
-}
-
-class _ElapsedTimer extends StatefulWidget {
-  const _ElapsedTimer();
-
-  @override
-  State<_ElapsedTimer> createState() => _ElapsedTimerState();
-}
-
-class _ElapsedTimerState extends State<_ElapsedTimer> {
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final duration = context.watch<SessionProvider>().duration;
-    return Row(
-      children: [
-        const Icon(Icons.timer, size: 15, color: Color(0xFFCFE2F7)),
-        const SizedBox(width: 6),
-        Text(
-          _formatDuration(duration),
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _formatDuration(Duration? value) {
-    if (value == null) return '0:00:00';
-    final hours = value.inHours;
-    final minutes = value.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$hours:$minutes:$seconds';
   }
 }
 
@@ -227,41 +179,39 @@ class _LiveStatusStripState extends State<_LiveStatusStrip> {
     final ws = context.watch<WebSocketProvider>();
     final eeg = context.watch<EegProvider>();
     final eyeTracking = context.watch<EyeTrackingProvider>();
+    final vrSimulation = context.watch<VrSimulationProvider>();
 
     return Padding(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
         children: [
-          const Text(
-            'DANE NA ŻYWO',
-            style: TextStyle(
-              color: AppColors.muted,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.8,
+          Expanded(
+            child: _CompactStatus(
+              label: 'Serwer',
+              online: ws.isConnected,
+              icon: Icons.hub,
             ),
           ),
-          const SizedBox(height: 10),
-          _CompactStatus(
-            label: 'Serwer',
-            online: ws.isConnected,
-            icon: Icons.hub,
+          Expanded(
+            child: _CompactStatus(
+              label: 'EEG',
+              online: _isRecent(eeg.latest?.timestamp),
+              icon: Icons.psychology,
+            ),
           ),
-          _CompactStatus(
-            label: 'EEG',
-            online: _isRecent(eeg.latest?.timestamp),
-            icon: Icons.psychology,
+          Expanded(
+            child: _CompactStatus(
+              label: vrSimulation.enabled ? 'VR · SYMULACJA' : 'VR',
+              online: vrSimulation.connected || _isRecent(ws.lastFrameAt),
+              icon: Icons.videocam,
+            ),
           ),
-          _CompactStatus(
-            label: 'VR',
-            online: _isRecent(ws.lastFrameAt),
-            icon: Icons.videocam,
-          ),
-          _CompactStatus(
-            label: 'Wzrok',
-            online: eyeTracking.isReceiving,
-            icon: Icons.visibility,
+          Expanded(
+            child: _CompactStatus(
+              label: 'Wzrok',
+              online: eyeTracking.isReceiving,
+              icon: Icons.visibility,
+            ),
           ),
         ],
       ),
@@ -288,28 +238,15 @@ class _CompactStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = online ? AppColors.success : AppColors.warning;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.text,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-          ),
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-        ],
+    final status = online ? 'połączono' : 'oczekuje';
+    return Tooltip(
+      message: '$label: $status',
+      child: Semantics(
+        label: '$label: $status',
+        child: SizedBox(
+          height: 28,
+          child: Center(child: Icon(icon, size: 20, color: color)),
+        ),
       ),
     );
   }

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -44,6 +45,10 @@ class SessionServiceTests(unittest.IsolatedAsyncioTestCase):
             sender_role="vr",
         )
         self.service.record_json(
+            {"type": "state_update", "current_view": "painting"},
+            sender_role="vr_simulator",
+        )
+        self.service.record_json(
             {"type": "command", "action": "pause"},
             sender_role="dashboard",
         )
@@ -59,11 +64,23 @@ class SessionServiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(summary["counts"]["eeg_records"], 1)
         self.assertEqual(summary["counts"]["eye_tracking_records"], 1)
-        self.assertEqual(summary["counts"]["vr_events"], 1)
+        self.assertEqual(summary["counts"]["vr_events"], 2)
         self.assertEqual(summary["counts"]["vr_frames"], 1)
         self.assertEqual(summary["counts"]["session_events"], 1)
         self.assertFalse(summary["eeg_enabled_at_start"])
         self.assertIsNone(self.service.active_session_id)
+
+        records_path = (
+            self.service.repository.session_directory(session_id)
+            / "vr_events.ndjson"
+        )
+        records = [
+            json.loads(line)
+            for line in records_path.read_text(encoding="utf-8").splitlines()
+        ]
+        simulated = next(record for record in records if record.get("simulated"))
+        self.assertEqual(simulated["source_role"], "vr_simulator")
+        self.assertEqual(simulated["payload"]["current_view"], "painting")
 
 
 if __name__ == "__main__":

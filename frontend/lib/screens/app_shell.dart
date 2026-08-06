@@ -9,6 +9,7 @@ import '../providers/eye_tracking_provider.dart';
 import '../providers/game_provider.dart';
 import '../providers/session_provider.dart';
 import '../providers/web_socket_provider.dart';
+import '../providers/vr_simulation_provider.dart';
 import 'home_screen.dart';
 import 'session_setup_screen.dart';
 import 'session_summary_screen.dart';
@@ -22,6 +23,8 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   StreamSubscription? _subscription;
+  SessionProvider? _sessionProvider;
+  SessionStage _lastSessionStage = SessionStage.loading;
 
   @override
   void initState() {
@@ -33,6 +36,9 @@ class _AppShellState extends State<AppShell> {
     final eegProvider = context.read<EegProvider>();
     final eegControlProvider = context.read<EegControlProvider>();
     final sessionProvider = context.read<SessionProvider>();
+    _sessionProvider = sessionProvider;
+    _lastSessionStage = sessionProvider.stage;
+    sessionProvider.addListener(_handleSessionStageChanged);
 
     wsProvider.setEyeTrackingCallback((data) {
       eyeTrackingProvider.updateFromJson(data);
@@ -55,8 +61,26 @@ class _AppShellState extends State<AppShell> {
 
   @override
   void dispose() {
+    _sessionProvider?.removeListener(_handleSessionStageChanged);
     _subscription?.cancel();
     super.dispose();
+  }
+
+  void _handleSessionStageChanged() {
+    final session = _sessionProvider;
+    if (session == null || session.stage == _lastSessionStage) return;
+
+    final previousStage = _lastSessionStage;
+    _lastSessionStage = session.stage;
+
+    if (session.stage == SessionStage.active) {
+      context.read<WebSocketProvider>().sendMessage({
+        'type': 'command',
+        'action': 'request_state',
+      });
+    } else if (previousStage == SessionStage.active) {
+      context.read<VrSimulationProvider>().disable();
+    }
   }
 
   @override

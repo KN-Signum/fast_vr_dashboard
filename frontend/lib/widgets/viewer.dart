@@ -1,11 +1,15 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/web_socket_provider.dart';
 import '../providers/eye_tracking_provider.dart';
+import '../providers/vr_simulation_provider.dart';
 import '../theme/app_style.dart';
 import 'eye_tracking_overlay.dart';
 import 'session_timeline.dart';
-import 'dart:typed_data';
+import 'vr_simulation_preview.dart';
 
 class Viewer extends StatelessWidget {
   final bool isDrawerOpen;
@@ -19,6 +23,8 @@ class Viewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final vrSimulation = context.watch<VrSimulationProvider>();
+
     return Expanded(
       child: Column(
         children: [
@@ -28,16 +34,21 @@ class Viewer extends StatelessWidget {
                 Container(
                   color: AppColors.viewer,
                   child: Center(
-                    child: Selector<WebSocketProvider, Uint8List?>(
-                      selector: (_, provider) => provider.lastFrame,
-                      builder: (context, frame, _) {
-                        if (frame == null) {
-                          return _buildPlaceholder();
-                        }
+                    child: vrSimulation.enabled
+                        ? _buildSimulationPreview(vrSimulation)
+                        : Selector<WebSocketProvider, Uint8List?>(
+                            selector: (_, provider) => provider.lastFrame,
+                            builder: (context, frame, _) {
+                              if (frame == null) {
+                                return _buildPlaceholder();
+                              }
 
-                        return _buildPreviewWithEyeTracking(context, frame);
-                      },
-                    ),
+                              return _buildPreviewWithEyeTracking(
+                                context,
+                                frame,
+                              );
+                            },
+                          ),
                   ),
                 ),
                 if (!isDrawerOpen)
@@ -58,6 +69,10 @@ class Viewer extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildSimulationPreview(VrSimulationProvider simulation) {
+    return VrSimulationPreview(simulation: simulation);
   }
 
   /// Build game preview with eye tracking overlay

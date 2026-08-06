@@ -403,7 +403,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket):
         role = websocket.query_params.get("role", "vr").strip().lower()
-        if role not in {"dashboard", "vr"}:
+        if role not in {"dashboard", "vr", "vr_simulator"}:
             role = "unknown"
         await manager.connect(websocket, role=role)
         logger.info("WebSocket %s connected from %s", role, websocket.client)

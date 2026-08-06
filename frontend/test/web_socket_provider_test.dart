@@ -28,6 +28,15 @@ void main() {
       expect(url, 'wss://dashboard.example.com/ws?role=dashboard');
     });
 
+    test('supports the VR simulator websocket role', () {
+      final url = resolveBackendWebSocketUrl(
+        Uri.parse('http://localhost:8080'),
+        role: 'vr_simulator',
+      );
+
+      expect(url, 'ws://localhost:8080/ws?role=vr_simulator');
+    });
+
     test('falls back to the development backend outside HTTP contexts', () {
       final url = resolveBackendWebSocketUrl(
         Uri.parse('file:///tmp/index.html'),
