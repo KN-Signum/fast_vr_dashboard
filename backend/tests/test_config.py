@@ -49,6 +49,9 @@ class AppSettingsTests(unittest.TestCase):
                 "VRDASH_STATIC_DIR": "/tmp/panel-vr-static",
                 "VRDASH_LOG_LEVEL": "debug",
                 "VRDASH_VERSION": "1.2.3",
+                "VRDASH_SUPABASE_URL": "https://example.supabase.co",
+                "VRDASH_SUPABASE_SERVICE_ROLE_KEY": "secret-key",
+                "VRDASH_SUPABASE_BUCKET": "raw-sessions",
             }
         )
 
@@ -63,6 +66,9 @@ class AppSettingsTests(unittest.TestCase):
         self.assertEqual(settings.static_dir, Path("/tmp/panel-vr-static"))
         self.assertEqual(settings.log_level, "DEBUG")
         self.assertEqual(settings.app_version, "1.2.3")
+        self.assertEqual(settings.supabase_url, "https://example.supabase.co")
+        self.assertEqual(settings.supabase_service_role_key, "secret-key")
+        self.assertEqual(settings.supabase_bucket, "raw-sessions")
 
     def test_invalid_values_are_rejected(self) -> None:
         invalid_environments = [

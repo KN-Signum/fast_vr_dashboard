@@ -92,4 +92,25 @@ void main() {
     expect(captured.url.path, '/api/sessions/session-001/post-session-notes');
     expect(json.decode(captured.body), {'notes': 'Patient felt well'});
   });
+
+  test('manually requests a raw ZIP upload', () async {
+    late http.Request captured;
+    final api = HttpSessionApi(
+      baseUri: Uri.parse('http://localhost:8080'),
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response(
+          json.encode({'uploaded': true, 'filename': 'raw.zip'}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final result = await api.uploadRawData('session-001');
+
+    expect(captured.method, 'POST');
+    expect(captured.url.path, '/api/sessions/session-001/upload/raw');
+    expect(result['uploaded'], isTrue);
+  });
 }

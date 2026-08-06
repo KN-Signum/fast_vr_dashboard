@@ -128,6 +128,29 @@ jobs:
           $version = (Get-Content VERSION -Raw).Trim()
           "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
+      - name: Configure Supabase upload
+        shell: pwsh
+        env:
+          SUPABASE_URL: ${{ secrets.VRDASH_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.VRDASH_SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_BUCKET: ${{ secrets.VRDASH_SUPABASE_BUCKET }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:SUPABASE_URL)) {
+            throw "VRDASH_SUPABASE_URL is not configured as a repository secret."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:SUPABASE_SECRET_KEY)) {
+            throw "VRDASH_SUPABASE_SERVICE_ROLE_KEY is not configured as a repository secret."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:SUPABASE_BUCKET)) {
+            throw "VRDASH_SUPABASE_BUCKET is not configured as a repository secret."
+          }
+
+          @(
+            "VRDASH_SUPABASE_URL=$env:SUPABASE_URL"
+            "VRDASH_SUPABASE_SERVICE_ROLE_KEY=$env:SUPABASE_SECRET_KEY"
+            "VRDASH_SUPABASE_BUCKET=$env:SUPABASE_BUCKET"
+          ) | Set-Content backend\.env -Encoding utf8NoBOM
+
       - name: Build and verify release
         shell: pwsh
         run: |

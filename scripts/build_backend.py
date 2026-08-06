@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -29,6 +30,7 @@ SPEC = BACKEND / "panel_vr.spec"
 SOURCE_STATIC = BACKEND / "static" / "web"
 DIST_ROOT = ROOT / "dist"
 WORK_ROOT = ROOT / "build" / "pyinstaller"
+RUNTIME_ENV = BACKEND / ".env"
 
 
 def git_output(*arguments: str) -> str:
@@ -92,6 +94,13 @@ def main() -> int:
         ]
         print(f"+ {' '.join(command)}", flush=True)
         subprocess.run(command, cwd=ROOT, env=environment, check=True)
+
+        if not RUNTIME_ENV.is_file():
+            raise RuntimeError(
+                "backend/.env is required for the production package. "
+                "Create it from backend/.env.example."
+            )
+        shutil.copy2(RUNTIME_ENV, DEFAULT_PACKAGE / ".env")
 
         commit = git_output("rev-parse", "HEAD")
         dirty = bool(git_output("status", "--porcelain", "--untracked-files=normal"))

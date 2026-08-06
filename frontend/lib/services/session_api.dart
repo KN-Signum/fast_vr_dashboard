@@ -27,6 +27,8 @@ abstract interface class SessionApi {
     required String note,
   });
 
+  Future<Map<String, dynamic>> uploadRawData(String sessionId);
+
   Uri summaryDownloadUri(String sessionId);
 
   Uri rawDownloadUri(String sessionId);
@@ -111,6 +113,11 @@ class HttpSessionApi implements SessionApi {
       '/api/sessions/$sessionId/events',
       body: {'label': label, 'category': category, 'note': note},
     );
+  }
+
+  @override
+  Future<Map<String, dynamic>> uploadRawData(String sessionId) {
+    return _requestMap('POST', '/api/sessions/$sessionId/upload/raw');
   }
 
   @override

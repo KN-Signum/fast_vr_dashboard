@@ -100,6 +100,23 @@ void main() {
       expect(provider.stage, SessionStage.setup);
       expect(provider.errorMessage, 'Backend unavailable');
     });
+
+    test('uploads raw data only after the session ends', () async {
+      final api = FakeSessionApi();
+      final provider = SessionProvider(api: api);
+      await provider.restoreActiveSession();
+      await provider.createSession(
+        patientId: 'patient-001',
+        preferredHand: 'left',
+      );
+
+      expect(await provider.uploadRawData(), isFalse);
+      await provider.endSession();
+      expect(await provider.uploadRawData(), isTrue);
+      expect(api.uploadedSessionId, 'session-001');
+      expect(provider.rawUploadCompleted, isTrue);
+      expect(await provider.uploadRawData(), isFalse);
+    });
   });
 }
 
@@ -132,6 +149,7 @@ class FakeSessionApi implements SessionApi {
   bool failCreate;
   String? createdPatientId;
   String? updatedPostSessionNotes;
+  String? uploadedSessionId;
 
   FakeSessionApi({this.active, this.recovered, this.failCreate = false});
 
@@ -192,6 +210,12 @@ class FakeSessionApi implements SessionApi {
       'elapsed_ms': 5000,
       'source': 'clinician',
     };
+  }
+
+  @override
+  Future<Map<String, dynamic>> uploadRawData(String sessionId) async {
+    uploadedSessionId = sessionId;
+    return {'uploaded': true, 'filename': 'raw.zip'};
   }
 
   @override

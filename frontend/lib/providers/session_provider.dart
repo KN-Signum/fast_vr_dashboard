@@ -52,6 +52,9 @@ class SessionProvider with ChangeNotifier {
   List<SessionEvent> _sessionEvents = [];
   bool _isBusy = false;
   String? _errorMessage;
+  bool _isRawUploadBusy = false;
+  bool _rawUploadCompleted = false;
+  String? _rawUploadError;
 
   SessionProvider({required SessionApi api}) : _api = api;
 
@@ -68,6 +71,9 @@ class SessionProvider with ChangeNotifier {
   bool get isActive => _stage == SessionStage.active;
   bool get isBusy => _isBusy;
   String? get errorMessage => _errorMessage;
+  bool get isRawUploadBusy => _isRawUploadBusy;
+  bool get rawUploadCompleted => _rawUploadCompleted;
+  String? get rawUploadError => _rawUploadError;
 
   Duration? get duration {
     final start = _startedAt;
@@ -174,6 +180,31 @@ class SessionProvider with ChangeNotifier {
     }, exposeBusyState: false);
   }
 
+  Future<bool> uploadRawData() async {
+    final id = _sessionId;
+    if (_stage != SessionStage.summary ||
+        id == null ||
+        _isRawUploadBusy ||
+        _rawUploadCompleted) {
+      return false;
+    }
+
+    _isRawUploadBusy = true;
+    _rawUploadError = null;
+    notifyListeners();
+    try {
+      await _api.uploadRawData(id);
+      _rawUploadCompleted = true;
+      return true;
+    } on SessionApiException catch (error) {
+      _rawUploadError = error.message;
+      return false;
+    } finally {
+      _isRawUploadBusy = false;
+      notifyListeners();
+    }
+  }
+
   void startNewSession() {
     _stage = SessionStage.setup;
     _sessionId = null;
@@ -187,6 +218,9 @@ class SessionProvider with ChangeNotifier {
     _summary = {};
     _sessionEvents = [];
     _errorMessage = null;
+    _isRawUploadBusy = false;
+    _rawUploadCompleted = false;
+    _rawUploadError = null;
     notifyListeners();
   }
 
@@ -216,8 +250,15 @@ class SessionProvider with ChangeNotifier {
     Map<String, dynamic> summary, {
     required SessionStage stage,
   }) {
+    final previousSessionId = _sessionId;
+    final nextSessionId = summary['session_id'] as String?;
+    if (previousSessionId != nextSessionId) {
+      _isRawUploadBusy = false;
+      _rawUploadCompleted = false;
+      _rawUploadError = null;
+    }
     _summary = Map<String, dynamic>.from(summary);
-    _sessionId = summary['session_id'] as String?;
+    _sessionId = nextSessionId;
     _patientId = summary['patient_id'] as String? ?? '';
     _preferredHand = summary['preferred_hand'] as String? ?? 'not_specified';
     _notes = summary['notes'] as String? ?? '';

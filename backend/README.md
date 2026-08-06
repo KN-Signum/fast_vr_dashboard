@@ -61,6 +61,9 @@ beacon, and automatic browser opening. Development defaults use mock EEG and ET.
 | `VRDASH_STATIC_DIR` | Compiled Flutter web directory |
 | `VRDASH_LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` |
 | `VRDASH_VERSION` | Version exposed by `/api/health` |
+| `VRDASH_SUPABASE_URL` | Supabase project URL; optional |
+| `VRDASH_SUPABASE_SERVICE_ROLE_KEY` | Backend-only service-role key; optional |
+| `VRDASH_SUPABASE_BUCKET` | Existing private Storage bucket; optional |
 | `BEACON_HOST` | Optional LAN address advertised instead of auto-detection |
 
 Example real-device development run:
@@ -70,6 +73,25 @@ VRDASH_EEG_MODE=real \
 VRDASH_ET_MODE=vr \
 uv run uvicorn main:app --host 0.0.0.0 --port 8080
 ```
+
+## Manual Supabase Upload
+
+The session summary can manually upload the raw-data ZIP to Supabase Storage.
+Create a private bucket and configure all three `VRDASH_SUPABASE_*` variables
+before starting Panel VR. The backend uploads only the generated ZIP file to
+the bucket root. It does not create a Supabase table or send a separate
+metadata record.
+
+For local development, copy `.env.example` to `.env` in the `backend`
+directory and fill in the three values. The launcher reads this file without
+overriding variables already defined by the operating system. In a packaged
+installation, place `.env` beside the Panel VR executable. Never commit the
+real `.env` file. Production build scripts copy this ignored file beside the
+executable, and fail instead of creating a release without Supabase settings.
+
+The service-role key is used only by the backend and must not be included in
+the Flutter web build. If the integration is not configured, the manual upload
+returns a clear configuration error and local downloads continue to work.
 
 ## Health and Diagnostics
 

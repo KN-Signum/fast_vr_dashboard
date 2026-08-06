@@ -122,6 +122,10 @@ class _DialogSessionApi implements SessionApi {
   }) => throw UnimplementedError();
 
   @override
+  Future<Map<String, dynamic>> uploadRawData(String sessionId) =>
+      throw UnimplementedError();
+
+  @override
   Uri rawDownloadUri(String sessionId) =>
       Uri.parse('http://localhost/download/raw');
 

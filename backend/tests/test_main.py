@@ -22,17 +22,25 @@ def _settings(
     environment: str = "test",
     eeg_mode: str = "off",
     et_mode: str = "off",
+    supabase: bool = False,
 ) -> AppSettings:
-    return AppSettings.from_env(
-        environ={
-            "VRDASH_ENV": environment,
-            "VRDASH_EEG_MODE": eeg_mode,
-            "VRDASH_ET_MODE": et_mode,
-            "VRDASH_BEACON_ENABLED": "false",
-            "VRDASH_STATIC_DIR": str(static_dir),
-            "VRDASH_DATA_DIR": str(static_dir / "data"),
-        }
-    )
+    environ = {
+        "VRDASH_ENV": environment,
+        "VRDASH_EEG_MODE": eeg_mode,
+        "VRDASH_ET_MODE": et_mode,
+        "VRDASH_BEACON_ENABLED": "false",
+        "VRDASH_STATIC_DIR": str(static_dir),
+        "VRDASH_DATA_DIR": str(static_dir / "data"),
+    }
+    if supabase:
+        environ.update(
+            {
+                "VRDASH_SUPABASE_URL": "https://example.supabase.co",
+                "VRDASH_SUPABASE_SERVICE_ROLE_KEY": "secret-key",
+                "VRDASH_SUPABASE_BUCKET": "raw-sessions",
+            }
+        )
+    return AppSettings.from_env(environ=environ)
 
 
 def _health_endpoint(app):
@@ -154,6 +162,54 @@ class AppFactoryTests(unittest.IsolatedAsyncioTestCase):
 
 
 class SessionApiTests(unittest.TestCase):
+    def test_raw_zip_upload_is_manual_and_uses_supabase_storage(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            static_dir = Path(temporary_directory)
+            (static_dir / "index.html").write_text("<html></html>", encoding="utf-8")
+            app = create_app(_settings(static_dir, supabase=True))
+
+            with TestClient(app) as client:
+                created = client.post(
+                    "/api/sessions",
+                    json={
+                        "patient_id": "patient-001",
+                        "preferred_hand": "left",
+                        "notes": "",
+                    },
+                ).json()
+                session_id = created["session_id"]
+                client.post(f"/api/sessions/{session_id}/end")
+
+                with patch("main.upload_zip") as upload:
+                    response = client.post(
+                        f"/api/sessions/{session_id}/upload/raw"
+                    )
+
+                self.assertEqual(response.status_code, 200)
+                expected_filename = f"raw_data_patient-001_{session_id}.zip"
+                self.assertEqual(
+                    response.json(),
+                    {"uploaded": True, "filename": expected_filename},
+                )
+                upload.assert_called_once()
+                self.assertEqual(upload.call_args.kwargs["filename"], expected_filename)
+                self.assertEqual(
+                    upload.call_args.kwargs["bucket"],
+                    "raw-sessions",
+                )
+                self.assertFalse(upload.call_args.args[0].exists())
+
+    def test_raw_zip_upload_requires_supabase_configuration(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            static_dir = Path(temporary_directory)
+            (static_dir / "index.html").write_text("<html></html>", encoding="utf-8")
+            app = create_app(_settings(static_dir))
+
+            with TestClient(app) as client:
+                response = client.post("/api/sessions/missing/upload/raw")
+
+            self.assertEqual(response.status_code, 503)
+
     def test_eeg_can_be_disabled_before_session_and_enabled_after_it(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             static_dir = Path(temporary_directory)

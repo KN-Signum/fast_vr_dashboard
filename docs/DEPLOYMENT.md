@@ -62,6 +62,18 @@ complete build and verification pipeline; and retains the artifact for 14 days.
 On failure it uploads available PyInstaller and bundle diagnostics for seven
 days.
 
+### Supabase Secrets
+
+Configure these repository Actions secrets before the first release:
+
+- `VRDASH_SUPABASE_URL`;
+- `VRDASH_SUPABASE_SERVICE_ROLE_KEY`;
+- `VRDASH_SUPABASE_BUCKET`.
+
+The workflow creates the ignored backend `.env` file during the Windows build.
+The build copies it beside `PanelVR.exe`, so both the installer and portable ZIP
+start with Supabase upload configured.
+
 ### GitHub Signing Secrets
 
 Configure repository Actions secrets:

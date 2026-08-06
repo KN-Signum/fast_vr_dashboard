@@ -191,6 +191,10 @@ class _FakeSessionApi implements SessionApi {
   }) => throw UnimplementedError();
 
   @override
+  Future<Map<String, dynamic>> uploadRawData(String sessionId) =>
+      throw UnimplementedError();
+
+  @override
   Uri rawDownloadUri(String sessionId) => Uri();
 
   @override

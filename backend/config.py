@@ -59,6 +59,9 @@ class AppSettings:
     static_dir: Path | None
     log_level: str
     app_version: str
+    supabase_url: str | None
+    supabase_service_role_key: str | None
+    supabase_bucket: str | None
 
     @classmethod
     def from_env(
@@ -136,4 +139,9 @@ class AppSettings:
             log_level=log_level,
             app_version=env.get("VRDASH_VERSION", default_app_version).strip()
             or default_app_version,
+            supabase_url=env.get("VRDASH_SUPABASE_URL", "").strip() or None,
+            supabase_service_role_key=(
+                env.get("VRDASH_SUPABASE_SERVICE_ROLE_KEY", "").strip() or None
+            ),
+            supabase_bucket=env.get("VRDASH_SUPABASE_BUCKET", "").strip() or None,
         )

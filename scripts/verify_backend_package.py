@@ -26,6 +26,11 @@ SOURCE_STATIC = ROOT / "backend" / "static" / "web"
 MANIFEST_NAME = "package-manifest.json"
 REQUIRED_DLLS = ("babciconnect.dll", "bacore.dll", "simpleble.dll")
 REQUIRED_REPORT_FONTS = ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf")
+REQUIRED_ENV_KEYS = (
+    "VRDASH_SUPABASE_URL",
+    "VRDASH_SUPABASE_SERVICE_ROLE_KEY",
+    "VRDASH_SUPABASE_BUCKET",
+)
 
 
 class PackageVerificationError(RuntimeError):
@@ -143,6 +148,23 @@ def verify_backend_package(
     if missing_fonts:
         raise PackageVerificationError(
             f"Package is missing session report fonts: {', '.join(missing_fonts)}"
+        )
+
+    env_file = package_dir / ".env"
+    if not env_file.is_file():
+        raise PackageVerificationError("Package is missing the runtime .env file")
+    configured_values = {}
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.lstrip().startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        configured_values[key.strip()] = value.strip()
+    missing_env_keys = [
+        key for key in REQUIRED_ENV_KEYS if not configured_values.get(key)
+    ]
+    if missing_env_keys:
+        raise PackageVerificationError(
+            "Package .env is missing values: " + ", ".join(missing_env_keys)
         )
 
     manifest = _read_json(package_dir / MANIFEST_NAME)

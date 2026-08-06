@@ -285,6 +285,43 @@ class _DownloadCard extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: session.isRawUploadBusy || session.rawUploadCompleted
+                ? null
+                : session.uploadRawData,
+            icon: session.isRawUploadBusy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    session.rawUploadCompleted
+                        ? Icons.cloud_done_outlined
+                        : Icons.cloud_upload_outlined,
+                  ),
+            label: Text(
+              session.rawUploadCompleted
+                  ? 'Dane wysłane do Supabase'
+                  : session.isRawUploadBusy
+                  ? 'Wysyłanie danych...'
+                  : 'Wyślij ZIP do Supabase',
+            ),
+          ),
+        ),
+        if (session.rawUploadError != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            session.rawUploadError!,
+            style: const TextStyle(
+              color: AppColors.danger,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
         if (fileStorage.errorMessage != null) ...[
           const SizedBox(height: 10),
           Text(

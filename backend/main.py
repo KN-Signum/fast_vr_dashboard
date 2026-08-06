@@ -29,6 +29,7 @@ from session_repository import (
 )
 from session_report import build_session_report
 from session_service import SessionService
+from supabase_storage import SupabaseUploadError, upload_zip
 
 
 logger = logging.getLogger(__name__)
@@ -406,6 +407,41 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             filename=f"raw_data_{safe_patient_id}_{session_id}.zip",
             background=BackgroundTask(archive.unlink, missing_ok=True),
         )
+
+    @app.post("/api/sessions/{session_id}/upload/raw")
+    async def upload_session_raw_data(session_id: str) -> dict:
+        supabase_url = resolved_settings.supabase_url
+        service_role_key = resolved_settings.supabase_service_role_key
+        bucket = resolved_settings.supabase_bucket
+        if not supabase_url or not service_role_key or not bucket:
+            raise HTTPException(
+                status_code=503,
+                detail="Przesyłanie do Supabase nie jest skonfigurowane",
+            )
+
+        try:
+            archive = await session_service.raw_archive(session_id)
+            patient_id = await session_service.patient_id(session_id)
+        except SessionNotFoundError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+
+        safe_patient_id = safe_filename_part(patient_id, fallback="pacjent")
+        filename = f"raw_data_{safe_patient_id}_{session_id}.zip"
+        try:
+            await asyncio.to_thread(
+                upload_zip,
+                archive,
+                filename=filename,
+                supabase_url=supabase_url,
+                service_role_key=service_role_key,
+                bucket=bucket,
+            )
+        except SupabaseUploadError as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
+        finally:
+            archive.unlink(missing_ok=True)
+
+        return {"uploaded": True, "filename": filename}
 
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket):
