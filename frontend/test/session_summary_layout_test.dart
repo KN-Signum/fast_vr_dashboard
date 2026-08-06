@@ -5,6 +5,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
 import 'package:vr_fast_dashboard/providers/session_file_storage_provider.dart';
 import 'package:vr_fast_dashboard/providers/session_provider.dart';
@@ -60,6 +62,17 @@ void main() {
     expect(counts.dy, greaterThan(files.dy));
     expect(rawDataButton.dy, greaterThan(reportButton.dy));
   });
+
+  testWidgets('confirms a successful local report save', (tester) async {
+    await _setViewport(tester, const Size(1200, 1200));
+    await _pumpSummary(tester);
+
+    await tester.tap(find.text('Raport PDF'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Raport PDF zapisano pomyślnie.'), findsOneWidget);
+  });
 }
 
 Future<void> _setViewport(WidgetTester tester, Size size) async {
@@ -70,7 +83,10 @@ Future<void> _setViewport(WidgetTester tester, Size size) async {
 
 Future<void> _pumpSummary(WidgetTester tester) async {
   final session = SessionProvider(api: _SummarySessionApi());
-  final fileStorage = SessionFileStorageProvider(store: _ReadyFileStore());
+  final fileStorage = SessionFileStorageProvider(
+    store: _ReadyFileStore(),
+    httpClient: MockClient((_) async => http.Response('file', 200)),
+  );
   await session.restoreActiveSession();
   addTearDown(session.dispose);
   addTearDown(fileStorage.dispose);
@@ -177,6 +193,5 @@ class _ReadyFileStore implements SessionFileStore {
       throw UnimplementedError();
 
   @override
-  Future<void> writeFile(String filename, Uint8List bytes) =>
-      throw UnimplementedError();
+  Future<void> writeFile(String filename, Uint8List bytes) async {}
 }

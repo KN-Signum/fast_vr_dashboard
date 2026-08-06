@@ -251,7 +251,7 @@ class _DownloadCard extends StatelessWidget {
               fileStorage.isBusy ||
               (usesFolder && !directoryReady)
           ? null
-          : () => _save(summaryUri, reportFilename),
+          : () => _save(context, summaryUri, reportFilename, 'Raport PDF'),
       icon: Icon(
         fileStorage.savedFiles.contains(reportFilename)
             ? Icons.check
@@ -265,7 +265,7 @@ class _DownloadCard extends StatelessWidget {
               fileStorage.isBusy ||
               (usesFolder && !directoryReady)
           ? null
-          : () => _save(rawUri, rawDataFilename),
+          : () => _save(context, rawUri, rawDataFilename, 'Dane ZIP'),
       icon: Icon(
         fileStorage.savedFiles.contains(rawDataFilename)
             ? Icons.check
@@ -366,12 +366,37 @@ class _DownloadCard extends StatelessWidget {
     }
   }
 
-  Future<void> _save(Uri uri, String filename) async {
+  Future<void> _save(
+    BuildContext context,
+    Uri uri,
+    String filename,
+    String label,
+  ) async {
+    var message = 'Rozpoczęto pobieranie: $label.';
     if (fileStorage.isSupported) {
-      await fileStorage.saveDownload(uri, filename);
+      final saved = await fileStorage.saveDownload(uri, filename);
+      if (!saved) return;
+      message = '$label zapisano pomyślnie.';
     } else {
       _download(uri, filename);
     }
+
+    if (!context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.success,
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_outline, color: Colors.white),
+            const SizedBox(width: AppSpacing.sm),
+            Text(message),
+          ],
+        ),
+      ),
+    );
   }
 
   void _download(Uri uri, String filename) {
