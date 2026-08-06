@@ -95,6 +95,10 @@ def build_session_report(
             Spacer(1, 2.5 * mm),
             _counts_table(summary, styles),
             Spacer(1, 5 * mm),
+            _section_heading("Zadanie z ptakami", styles),
+            Spacer(1, 2.5 * mm),
+            _bird_count_content(summary, styles),
+            Spacer(1, 5 * mm),
             _section_heading("Rozkład spojrzenia", styles),
             Spacer(1, 2.5 * mm),
             _eye_tracking_content(summary, styles),
@@ -467,6 +471,80 @@ def _eye_tracking_content(
     )
 
 
+def _bird_count_content(
+    summary: dict[str, Any],
+    styles: dict[str, ParagraphStyle],
+):
+    bird_counts = summary.get("bird_count_summary")
+    if not isinstance(bird_counts, dict):
+        return Paragraph("Brak danych z zadania z ptakami.", styles["body"])
+
+    rows = [
+        [
+            Paragraph("", styles["table_header"]),
+            Paragraph("Łącznie", styles["table_header"]),
+            Paragraph("Lewa strona", styles["table_header"]),
+            Paragraph("Prawa strona", styles["table_header"]),
+        ],
+        [
+            Paragraph("Wygenerowane", styles["table"]),
+            Paragraph(
+                _format_optional_count(bird_counts.get("visible_total")),
+                styles["table"],
+            ),
+            Paragraph(
+                _format_optional_count(bird_counts.get("visible_left")),
+                styles["table"],
+            ),
+            Paragraph(
+                _format_optional_count(bird_counts.get("visible_right")),
+                styles["table"],
+            ),
+        ],
+        [
+            Paragraph("Zgłoszone przez pacjenta", styles["table"]),
+            Paragraph(
+                _format_optional_count(bird_counts.get("reported_total")),
+                styles["body_bold"],
+            ),
+            Paragraph(
+                _format_optional_count(bird_counts.get("reported_left")),
+                styles["body_bold"],
+            ),
+            Paragraph(
+                _format_optional_count(bird_counts.get("reported_right")),
+                styles["body_bold"],
+            ),
+        ],
+    ]
+    table = Table(rows, colWidths=[66 * mm, 36 * mm, 36 * mm, 36 * mm])
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), _PRIMARY),
+                ("BOX", (0, 0), (-1, -1), 0.5, _BORDER),
+                ("INNERGRID", (0, 0), (-1, -1), 0.3, _BORDER),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, _SURFACE]),
+                ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ]
+        )
+    )
+    return KeepTogether(
+        [
+            table,
+            Spacer(1, 1.5 * mm),
+            Paragraph(
+                "Liczby zgłoszone są wprowadzane przez diagnostę na podstawie "
+                "odpowiedzi pacjenta.",
+                styles["disclaimer"],
+            ),
+        ]
+    )
+
+
 def _eye_tracking_heatmap(
     values: list[list[float]],
     styles: dict[str, ParagraphStyle],
@@ -680,6 +758,12 @@ def _format_elapsed(value: Any) -> str:
 def _format_count(value: Any) -> str:
     count = value if isinstance(value, int) and value >= 0 else 0
     return f"{count:,}".replace(",", " ")
+
+
+def _format_optional_count(value: Any) -> str:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return "—"
+    return _format_count(value)
 
 
 def _preferred_hand(value: Any) -> str:

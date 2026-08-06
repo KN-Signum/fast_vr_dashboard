@@ -39,6 +39,14 @@ class SessionReportTests(unittest.TestCase):
                 "session_events": len(events),
             },
             "dropped_records": 0,
+            "bird_count_summary": {
+                "visible_total": 8,
+                "visible_left": 4,
+                "visible_right": 4,
+                "reported_total": 6,
+                "reported_left": 3,
+                "reported_right": 3,
+            },
             "eye_tracking_analysis": {
                 "total_records": 2000,
                 "valid_points": 1800,

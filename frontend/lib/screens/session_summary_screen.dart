@@ -30,19 +30,11 @@ class SessionSummaryScreen extends StatelessWidget {
                 children: [
                   _SummaryHeader(session: session, fileStorage: fileStorage),
                   const SizedBox(height: AppSpacing.lg),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _MetadataCard(session: session)),
-                      const SizedBox(width: AppSpacing.lg),
-                      Expanded(
-                        child: _CountsCard(
-                          counts: counts,
-                          droppedRecords:
-                              report['dropped_records'] as int? ?? 0,
-                        ),
-                      ),
-                    ],
+                  _SummaryOverview(
+                    session: session,
+                    fileStorage: fileStorage,
+                    counts: counts,
+                    droppedRecords: report['dropped_records'] as int? ?? 0,
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   EyeTrackingSummaryCard(
@@ -52,8 +44,6 @@ class SessionSummaryScreen extends StatelessWidget {
                           )
                         : null,
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-                  _DownloadCard(session: session, fileStorage: fileStorage),
                   if (session.sessionEvents.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.lg),
                     _EventsCard(events: session.sessionEvents),
@@ -64,6 +54,67 @@ class SessionSummaryScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SummaryOverview extends StatelessWidget {
+  final SessionProvider session;
+  final SessionFileStorageProvider fileStorage;
+  final Map<String, dynamic> counts;
+  final int droppedRecords;
+
+  const _SummaryOverview({
+    required this.session,
+    required this.fileStorage,
+    required this.counts,
+    required this.droppedRecords,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final metadata = _MetadataCard(session: session);
+    final downloads = _DownloadCard(session: session, fileStorage: fileStorage);
+    final recordedData = _CountsCard(
+      counts: counts,
+      droppedRecords: droppedRecords,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 820) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              metadata,
+              const SizedBox(height: AppSpacing.lg),
+              downloads,
+              const SizedBox(height: AppSpacing.lg),
+              recordedData,
+            ],
+          );
+        }
+
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    metadata,
+                    const SizedBox(height: AppSpacing.lg),
+                    downloads,
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.lg),
+              Expanded(child: recordedData),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -115,24 +166,6 @@ class _MetadataCard extends StatelessWidget {
           label: 'Czas trwania',
           value: _formatDuration(session.duration),
         ),
-        if (session.notes.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Text(
-            'Notatki przed sesją',
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 4),
-          Text(session.notes),
-        ],
-        if (session.postSessionNotes.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Text(
-            'Notatki po sesji',
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 4),
-          Text(session.postSessionNotes),
-        ],
       ],
     );
   }
@@ -211,107 +244,97 @@ class _DownloadCard extends StatelessWidget {
     final rawDataFilename = sessionRawDataFilename(patientId, sessionId);
     final usesFolder = fileStorage.isSupported;
     final directoryReady = fileStorage.hasPatientDirectory;
+    final stackActions = MediaQuery.sizeOf(context).width < 600;
+    final reportButton = ElevatedButton.icon(
+      onPressed:
+          summaryUri == null ||
+              fileStorage.isBusy ||
+              (usesFolder && !directoryReady)
+          ? null
+          : () => _save(summaryUri, reportFilename),
+      icon: Icon(
+        fileStorage.savedFiles.contains(reportFilename)
+            ? Icons.check
+            : Icons.picture_as_pdf,
+      ),
+      label: const Text('Raport PDF'),
+    );
+    final rawDataButton = ElevatedButton.icon(
+      onPressed:
+          rawUri == null ||
+              fileStorage.isBusy ||
+              (usesFolder && !directoryReady)
+          ? null
+          : () => _save(rawUri, rawDataFilename),
+      icon: Icon(
+        fileStorage.savedFiles.contains(rawDataFilename)
+            ? Icons.check
+            : Icons.data_object,
+      ),
+      label: const Text('Dane ZIP'),
+    );
+    final uploadButton = Tooltip(
+      message: 'Wyślij ZIP do Supabase',
+      child: OutlinedButton.icon(
+        onPressed: session.isRawUploadBusy || session.rawUploadCompleted
+            ? null
+            : session.uploadRawData,
+        icon: session.isRawUploadBusy
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Icon(
+                session.rawUploadCompleted
+                    ? Icons.cloud_done_outlined
+                    : Icons.cloud_upload_outlined,
+              ),
+        label: Text(
+          session.rawUploadCompleted
+              ? 'Wysłano'
+              : session.isRawUploadBusy
+              ? 'Wysyłanie...'
+              : 'Supabase',
+        ),
+      ),
+    );
 
     return _SummaryCard(
       title: 'Pliki sesji',
       icon: Icons.folder_copy,
+      trailing: usesFolder
+          ? _FolderSummary(
+              directoryReady: directoryReady,
+              path: directoryReady
+                  ? '${fileStorage.baseDirectoryName}/${fileStorage.patientDirectoryName}'
+                  : null,
+              isBusy: fileStorage.isBusy,
+              onSelect: () => _selectDirectory(patientId),
+            )
+          : null,
       children: [
-        if (usesFolder) ...[
+        if (stackActions)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              reportButton,
+              const SizedBox(height: AppSpacing.sm),
+              rawDataButton,
+              const SizedBox(height: AppSpacing.sm),
+              uploadButton,
+            ],
+          )
+        else
           Row(
             children: [
-              Icon(
-                directoryReady ? Icons.folder : Icons.folder_off_outlined,
-                size: 18,
-                color: directoryReady ? AppColors.success : AppColors.warning,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  directoryReady
-                      ? '${fileStorage.baseDirectoryName}/${fileStorage.patientDirectoryName}'
-                      : 'Folder zapisu wymaga ponownego wybrania',
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-              if (!directoryReady)
-                OutlinedButton.icon(
-                  onPressed: fileStorage.isBusy
-                      ? null
-                      : () => _selectDirectory(patientId),
-                  icon: const Icon(Icons.folder_open, size: 18),
-                  label: const Text('Wybierz folder'),
-                ),
+              Expanded(child: reportButton),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(child: rawDataButton),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(child: uploadButton),
             ],
           ),
-          const SizedBox(height: 12),
-        ],
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed:
-                    summaryUri == null ||
-                        fileStorage.isBusy ||
-                        (usesFolder && !directoryReady)
-                    ? null
-                    : () => _save(summaryUri, reportFilename),
-                icon: Icon(
-                  fileStorage.savedFiles.contains(reportFilename)
-                      ? Icons.check
-                      : Icons.picture_as_pdf,
-                ),
-                label: Text(usesFolder ? 'Zapisz raport' : 'Pobierz raport'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed:
-                    rawUri == null ||
-                        fileStorage.isBusy ||
-                        (usesFolder && !directoryReady)
-                    ? null
-                    : () => _save(rawUri, rawDataFilename),
-                icon: Icon(
-                  fileStorage.savedFiles.contains(rawDataFilename)
-                      ? Icons.check
-                      : Icons.data_object,
-                ),
-                label: Text(
-                  usesFolder ? 'Zapisz dane surowe' : 'Pobierz dane surowe',
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: session.isRawUploadBusy || session.rawUploadCompleted
-                ? null
-                : session.uploadRawData,
-            icon: session.isRawUploadBusy
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(
-                    session.rawUploadCompleted
-                        ? Icons.cloud_done_outlined
-                        : Icons.cloud_upload_outlined,
-                  ),
-            label: Text(
-              session.rawUploadCompleted
-                  ? 'Dane wysłane do Supabase'
-                  : session.isRawUploadBusy
-                  ? 'Wysyłanie danych...'
-                  : 'Wyślij ZIP do Supabase',
-            ),
-          ),
-        ),
         if (session.rawUploadError != null) ...[
           const SizedBox(height: 10),
           Text(
@@ -356,6 +379,55 @@ class _DownloadCard extends StatelessWidget {
     anchor.href = uri.toString();
     anchor.download = filename;
     anchor.click();
+  }
+}
+
+class _FolderSummary extends StatelessWidget {
+  final bool directoryReady;
+  final String? path;
+  final bool isBusy;
+  final VoidCallback onSelect;
+
+  const _FolderSummary({
+    required this.directoryReady,
+    required this.path,
+    required this.isBusy,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!directoryReady) {
+      return TextButton.icon(
+        onPressed: isBusy ? null : onSelect,
+        icon: const Icon(Icons.folder_open, size: 18),
+        label: const Text('Wybierz folder'),
+      );
+    }
+
+    return Tooltip(
+      message: path ?? '',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.folder, size: 18, color: AppColors.success),
+          const SizedBox(width: AppSpacing.xs),
+          Flexible(
+            child: Text(
+              path ?? '',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -430,11 +502,13 @@ class _EventsCard extends StatelessWidget {
 class _SummaryCard extends StatelessWidget {
   final String title;
   final IconData icon;
+  final Widget? trailing;
   final List<Widget> children;
 
   const _SummaryCard({
     required this.title,
     required this.icon,
+    this.trailing,
     required this.children,
   });
 
@@ -449,13 +523,19 @@ class _SummaryCard extends StatelessWidget {
             children: [
               Icon(icon, size: 18, color: AppColors.primary),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.text,
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.text,
+                  ),
                 ),
               ),
+              if (trailing != null) ...[
+                const SizedBox(width: AppSpacing.sm),
+                Flexible(child: trailing!),
+              ],
             ],
           ),
           const SizedBox(height: 14),

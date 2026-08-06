@@ -23,11 +23,13 @@ class EyeTrackingSummaryCard extends StatelessWidget {
             children: [
               const Icon(Icons.visibility, size: 18, color: AppColors.primary),
               const SizedBox(width: 8),
-              Text(
-                'Rozkład spojrzenia',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.text,
+              Expanded(
+                child: Text(
+                  'Rozkład spojrzenia',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.text,
+                  ),
                 ),
               ),
             ],

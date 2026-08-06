@@ -28,8 +28,8 @@ between:
 - `SessionSummaryScreen`: metadata, counts, observations, and downloads.
 
 Ending a session immediately stops and flushes recording, then opens a modal
-for optional post-session notes. The final summary and PDF distinguish notes
-entered before and after the session.
+for optional post-session notes. Notes entered before and after the session are
+kept out of the patient card and included in the final PDF report.
 
 For completed sessions, the summary shows a descriptive ET heatmap based on
 valid normalized gaze projections, together with valid-data coverage and

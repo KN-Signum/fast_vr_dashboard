@@ -53,12 +53,18 @@ class SessionServiceTests(unittest.IsolatedAsyncioTestCase):
             sender_role="dashboard",
         )
         self.service.record_json(
+            {"type": "bird_count", "visible": 8, "left": 4, "right": 4},
+            sender_role="vr",
+        )
+        self.service.record_json(
             {
                 "type": "bird_observation",
                 "side": "left",
                 "delta": 1,
                 "reported_left": 1,
                 "reported_right": 0,
+                "visible_left": 4,
+                "visible_right": 4,
             },
             sender_role="dashboard",
         )
@@ -74,10 +80,21 @@ class SessionServiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(summary["counts"]["eeg_records"], 1)
         self.assertEqual(summary["counts"]["eye_tracking_records"], 1)
-        self.assertEqual(summary["counts"]["vr_events"], 3)
+        self.assertEqual(summary["counts"]["vr_events"], 4)
         self.assertEqual(summary["counts"]["vr_frames"], 1)
         self.assertEqual(summary["counts"]["session_events"], 1)
         self.assertFalse(summary["eeg_enabled_at_start"])
+        self.assertEqual(
+            summary["bird_count_summary"],
+            {
+                "visible_total": 8,
+                "visible_left": 4,
+                "visible_right": 4,
+                "reported_total": 1,
+                "reported_left": 1,
+                "reported_right": 0,
+            },
+        )
         self.assertIsNone(self.service.active_session_id)
 
         records_path = (

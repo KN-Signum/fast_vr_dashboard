@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
+from bird_count_analysis import analyze_bird_counts
 from eye_tracking_analysis import analyze_eye_tracking
 from filename_utils import safe_filename_part
 
@@ -514,9 +515,13 @@ class SessionRepository:
                 ),
             )
         eye_tracking_analysis = None
+        bird_count_summary = None
         if session["status"] != "active":
             eye_tracking_analysis = analyze_eye_tracking(
                 self.session_directory(session_id) / STREAM_FILES["eye_tracking_records"]
+            )
+            bird_count_summary = analyze_bird_counts(
+                self.session_directory(session_id) / STREAM_FILES["vr_events"]
             )
         return {
             "session_id": session["id"],
@@ -540,6 +545,7 @@ class SessionRepository:
             },
             "dropped_records": session["dropped_records"],
             "eye_tracking_analysis": eye_tracking_analysis,
+            "bird_count_summary": bird_count_summary,
             "session_events": self.events(session_id),
         }
 
