@@ -8,11 +8,13 @@ import 'package:vr_fast_dashboard/providers/eeg_control_provider.dart';
 import 'package:vr_fast_dashboard/providers/eeg_provider.dart';
 import 'package:vr_fast_dashboard/providers/eye_tracking_provider.dart';
 import 'package:vr_fast_dashboard/providers/session_provider.dart';
+import 'package:vr_fast_dashboard/providers/session_file_storage_provider.dart';
 import 'package:vr_fast_dashboard/providers/vr_simulation_provider.dart';
 import 'package:vr_fast_dashboard/providers/web_socket_provider.dart';
 import 'package:vr_fast_dashboard/screens/session_setup_screen.dart';
 import 'package:vr_fast_dashboard/services/eeg_control_api.dart';
 import 'package:vr_fast_dashboard/services/session_api.dart';
+import 'package:vr_fast_dashboard/services/session_file_store_factory.dart';
 import 'package:vr_fast_dashboard/widgets/vr_simulation_preview.dart';
 
 void main() {
@@ -27,6 +29,7 @@ void main() {
     );
 
     expect(find.byKey(const ValueKey('vr-simulation-switch')), findsOneWidget);
+    expect(find.text('Folder zapisu'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.binding.setSurfaceSize(null);
@@ -83,10 +86,12 @@ class _TestProviders {
         channelFactory: (_) => connection ?? _FakeConnection(),
       ),
       session = SessionProvider(api: _FakeSessionApi()),
+      fileStorage = SessionFileStorageProvider(store: createSessionFileStore()),
       eegControl = EegControlProvider(api: _FakeEegControlApi());
 
   final VrSimulationProvider simulation;
   final SessionProvider session;
+  final SessionFileStorageProvider fileStorage;
   final EegControlProvider eegControl;
   final WebSocketProvider websocket = WebSocketProvider();
   final EyeTrackingProvider eyeTracking = EyeTrackingProvider();
@@ -97,6 +102,7 @@ class _TestProviders {
       providers: [
         ChangeNotifierProvider.value(value: simulation),
         ChangeNotifierProvider.value(value: session),
+        ChangeNotifierProvider.value(value: fileStorage),
         ChangeNotifierProvider.value(value: eegControl),
         ChangeNotifierProvider.value(value: websocket),
         ChangeNotifierProvider.value(value: eyeTracking),
@@ -109,6 +115,7 @@ class _TestProviders {
   void dispose() {
     simulation.dispose();
     session.dispose();
+    fileStorage.dispose();
     eegControl.dispose();
     websocket.dispose();
     eyeTracking.dispose();

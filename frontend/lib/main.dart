@@ -7,10 +7,12 @@ import 'providers/eye_tracking_provider.dart';
 import 'providers/eeg_provider.dart';
 import 'providers/eeg_control_provider.dart';
 import 'providers/session_provider.dart';
+import 'providers/session_file_storage_provider.dart';
 import 'providers/vr_simulation_provider.dart';
 import 'screens/app_shell.dart';
 import 'services/session_api.dart';
 import 'services/eeg_control_api.dart';
+import 'services/session_file_store_factory.dart';
 import 'theme/app_style.dart';
 import 'utils/backend_url.dart';
 
@@ -24,7 +26,15 @@ class ViewerApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => WebSocketProvider()),
-        ChangeNotifierProvider(create: (_) => GameProvider()),
+        ChangeNotifierProvider(
+          create: (_) =>
+              SessionFileStorageProvider(store: createSessionFileStore()),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => GameProvider(
+            fileStorage: context.read<SessionFileStorageProvider>(),
+          ),
+        ),
         ChangeNotifierProvider(create: (_) => VrSimulationProvider()),
         ChangeNotifierProvider(create: (_) => EyeTrackingProvider()),
         ChangeNotifierProvider(create: (_) => EegProvider()),

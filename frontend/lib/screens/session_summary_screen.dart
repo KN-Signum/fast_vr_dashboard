@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:web/web.dart' as web;
 
 import '../providers/session_provider.dart';
+import '../providers/session_file_storage_provider.dart';
 import '../theme/app_style.dart' hide MetricTile;
 import '../utils/download_filename.dart';
 import '../widgets/eye_tracking_summary_card.dart';
@@ -13,6 +14,7 @@ class SessionSummaryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final session = context.watch<SessionProvider>();
+    final fileStorage = context.watch<SessionFileStorageProvider>();
     final report = session.summaryReport();
     final counts = report['counts'] as Map<String, dynamic>;
 
@@ -26,7 +28,7 @@ class SessionSummaryScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _SummaryHeader(session: session),
+                  _SummaryHeader(session: session, fileStorage: fileStorage),
                   const SizedBox(height: AppSpacing.lg),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,7 +53,7 @@ class SessionSummaryScreen extends StatelessWidget {
                         : null,
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  _DownloadCard(session: session),
+                  _DownloadCard(session: session, fileStorage: fileStorage),
                   if (session.sessionEvents.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.lg),
                     _EventsCard(events: session.sessionEvents),
@@ -68,8 +70,9 @@ class SessionSummaryScreen extends StatelessWidget {
 
 class _SummaryHeader extends StatelessWidget {
   final SessionProvider session;
+  final SessionFileStorageProvider fileStorage;
 
-  const _SummaryHeader({required this.session});
+  const _SummaryHeader({required this.session, required this.fileStorage});
 
   @override
   Widget build(BuildContext context) {
@@ -79,7 +82,10 @@ class _SummaryHeader extends StatelessWidget {
           : 'Podsumowanie sesji',
       subtitle: session.sessionId ?? 'Brak sesji',
       trailing: OutlinedButton.icon(
-        onPressed: session.startNewSession,
+        onPressed: () {
+          fileStorage.clear();
+          session.startNewSession();
+        },
         icon: const Icon(Icons.add),
         label: const Text('Nowa sesja'),
       ),
@@ -191,8 +197,9 @@ class _CountsCard extends StatelessWidget {
 
 class _DownloadCard extends StatelessWidget {
   final SessionProvider session;
+  final SessionFileStorageProvider fileStorage;
 
-  const _DownloadCard({required this.session});
+  const _DownloadCard({required this.session, required this.fileStorage});
 
   @override
   Widget build(BuildContext context) {
@@ -200,42 +207,111 @@ class _DownloadCard extends StatelessWidget {
     final patientId = session.patientId;
     final summaryUri = session.summaryDownloadUri;
     final rawUri = session.rawDownloadUri;
+    final reportFilename = sessionReportFilename(patientId, sessionId);
+    final rawDataFilename = sessionRawDataFilename(patientId, sessionId);
+    final usesFolder = fileStorage.isSupported;
+    final directoryReady = fileStorage.hasPatientDirectory;
 
     return _SummaryCard(
-      title: 'Pobieranie',
-      icon: Icons.download,
+      title: 'Pliki sesji',
+      icon: Icons.folder_copy,
       children: [
+        if (usesFolder) ...[
+          Row(
+            children: [
+              Icon(
+                directoryReady ? Icons.folder : Icons.folder_off_outlined,
+                size: 18,
+                color: directoryReady ? AppColors.success : AppColors.warning,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  directoryReady
+                      ? '${fileStorage.baseDirectoryName}/${fileStorage.patientDirectoryName}'
+                      : 'Folder zapisu wymaga ponownego wybrania',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (!directoryReady)
+                OutlinedButton.icon(
+                  onPressed: fileStorage.isBusy
+                      ? null
+                      : () => _selectDirectory(patientId),
+                  icon: const Icon(Icons.folder_open, size: 18),
+                  label: const Text('Wybierz folder'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
         Row(
           children: [
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: summaryUri == null
+                onPressed:
+                    summaryUri == null ||
+                        fileStorage.isBusy ||
+                        (usesFolder && !directoryReady)
                     ? null
-                    : () => _download(
-                        summaryUri,
-                        sessionReportFilename(patientId, sessionId),
-                      ),
-                icon: const Icon(Icons.picture_as_pdf),
-                label: const Text('Pobierz raport'),
+                    : () => _save(summaryUri, reportFilename),
+                icon: Icon(
+                  fileStorage.savedFiles.contains(reportFilename)
+                      ? Icons.check
+                      : Icons.picture_as_pdf,
+                ),
+                label: Text(usesFolder ? 'Zapisz raport' : 'Pobierz raport'),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: rawUri == null
+                onPressed:
+                    rawUri == null ||
+                        fileStorage.isBusy ||
+                        (usesFolder && !directoryReady)
                     ? null
-                    : () => _download(
-                        rawUri,
-                        sessionRawDataFilename(patientId, sessionId),
-                      ),
-                icon: const Icon(Icons.data_object),
-                label: const Text('Pobierz dane surowe'),
+                    : () => _save(rawUri, rawDataFilename),
+                icon: Icon(
+                  fileStorage.savedFiles.contains(rawDataFilename)
+                      ? Icons.check
+                      : Icons.data_object,
+                ),
+                label: Text(
+                  usesFolder ? 'Zapisz dane surowe' : 'Pobierz dane surowe',
+                ),
               ),
             ),
           ],
         ),
+        if (fileStorage.errorMessage != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            fileStorage.errorMessage!,
+            style: const TextStyle(
+              color: AppColors.danger,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ],
     );
+  }
+
+  Future<void> _selectDirectory(String patientId) async {
+    final selected = await fileStorage.pickBaseDirectory();
+    if (selected) {
+      await fileStorage.preparePatientDirectory(patientId);
+    }
+  }
+
+  Future<void> _save(Uri uri, String filename) async {
+    if (fileStorage.isSupported) {
+      await fileStorage.saveDownload(uri, filename);
+    } else {
+      _download(uri, filename);
+    }
   }
 
   void _download(Uri uri, String filename) {

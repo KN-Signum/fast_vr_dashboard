@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
@@ -5,10 +6,16 @@ import 'dart:js_interop';
 
 import '../models/bird_count_state.dart';
 import '../utils/download_filename.dart';
+import 'session_file_storage_provider.dart';
 
 export '../models/bird_count_state.dart' show BirdSide;
 
 class GameProvider with ChangeNotifier {
+  GameProvider({SessionFileStorageProvider? fileStorage})
+    : _fileStorage = fileStorage;
+
+  final SessionFileStorageProvider? _fileStorage;
+
   // Stan ekranu: 'info', 'menu', 'forest', 'painting'
   String _currentScreen = 'info';
 
@@ -129,17 +136,35 @@ class GameProvider with ChangeNotifier {
       final blob = web.Blob([bytes.toJS].toJS);
       final url = web.URL.createObjectURL(blob);
       final anchor = web.document.createElement('a') as web.HTMLAnchorElement;
-
-      anchor.href = url;
-      anchor.download = paintingFilename(
+      final filename = paintingFilename(
         patientId,
         DateTime.now().millisecondsSinceEpoch,
         format,
       );
-      anchor.click();
-      web.URL.revokeObjectURL(url);
+      unawaited(_saveOrDownload(bytes, filename, anchor, url));
     } catch (e) {
       debugPrint('❌ Błąd zapisu: $e');
     }
+  }
+
+  Future<void> _saveOrDownload(
+    Uint8List bytes,
+    String filename,
+    web.HTMLAnchorElement anchor,
+    String objectUrl,
+  ) async {
+    final storage = _fileStorage;
+    if (storage != null && storage.hasPatientDirectory) {
+      final saved = await storage.saveBytes(filename, bytes);
+      if (saved) {
+        web.URL.revokeObjectURL(objectUrl);
+        return;
+      }
+    }
+
+    anchor.href = objectUrl;
+    anchor.download = filename;
+    anchor.click();
+    web.URL.revokeObjectURL(objectUrl);
   }
 }

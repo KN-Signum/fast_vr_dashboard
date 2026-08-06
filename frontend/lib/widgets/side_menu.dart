@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../providers/eeg_provider.dart';
 import '../providers/eye_tracking_provider.dart';
 import '../providers/session_provider.dart';
+import '../providers/session_file_storage_provider.dart';
 import '../providers/web_socket_provider.dart';
 import '../providers/vr_simulation_provider.dart';
 import '../theme/app_style.dart';
@@ -24,6 +25,7 @@ class SideMenu extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final session = context.watch<SessionProvider>();
+    final fileStorage = context.watch<SessionFileStorageProvider>();
 
     return Container(
       width: 200,
@@ -34,6 +36,25 @@ class SideMenu extends StatelessWidget {
           _SessionHeader(onToggle: onToggle),
           const _LiveStatusStrip(),
           const Divider(height: 1),
+          if (fileStorage.isSupported && !fileStorage.hasPatientDirectory) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              child: OutlinedButton.icon(
+                onPressed: fileStorage.isBusy
+                    ? null
+                    : () async {
+                        final selected = await fileStorage.pickBaseDirectory();
+                        if (selected) {
+                          await fileStorage.preparePatientDirectory(
+                            session.patientId,
+                          );
+                        }
+                      },
+                icon: const Icon(Icons.folder_open, size: 17),
+                label: const Text('Wybierz folder zapisu'),
+              ),
+            ),
+          ],
           const Expanded(child: SingleChildScrollView(child: ControlSection())),
           Padding(
             padding: const EdgeInsets.all(16),
@@ -44,8 +65,10 @@ class SideMenu extends StatelessWidget {
                       await showDialog<void>(
                         context: context,
                         barrierDismissible: false,
-                        builder: (_) =>
-                            PostSessionNotesDialog(session: session),
+                        builder: (_) => PostSessionNotesDialog(
+                          session: session,
+                          fileStorage: fileStorage,
+                        ),
                       );
                     },
               icon: const Icon(Icons.stop_circle),

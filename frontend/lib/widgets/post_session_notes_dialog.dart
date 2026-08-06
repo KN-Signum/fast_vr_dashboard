@@ -3,12 +3,19 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../providers/session_provider.dart';
+import '../providers/session_file_storage_provider.dart';
 import '../theme/app_style.dart';
+import '../utils/download_filename.dart';
 
 class PostSessionNotesDialog extends StatefulWidget {
   final SessionProvider session;
+  final SessionFileStorageProvider? fileStorage;
 
-  const PostSessionNotesDialog({super.key, required this.session});
+  const PostSessionNotesDialog({
+    super.key,
+    required this.session,
+    this.fileStorage,
+  });
 
   @override
   State<PostSessionNotesDialog> createState() => _PostSessionNotesDialogState();
@@ -56,6 +63,37 @@ class _PostSessionNotesDialogState extends State<PostSessionNotesDialog> {
     final success = await widget.session.updatePostSessionNotes(notes);
     if (!mounted) return;
     if (success) {
+      final storage = widget.fileStorage;
+      final sessionId = widget.session.sessionId;
+      final reportUri = widget.session.summaryDownloadUri;
+      final rawDataUri = widget.session.rawDownloadUri;
+      if (storage != null &&
+          storage.isSupported &&
+          storage.hasPatientDirectory &&
+          sessionId != null &&
+          reportUri != null &&
+          rawDataUri != null) {
+        final filesSaved = await storage.saveSessionDeliverables(
+          reportUri: reportUri,
+          reportFilename: sessionReportFilename(
+            widget.session.patientId,
+            sessionId,
+          ),
+          rawDataUri: rawDataUri,
+          rawDataFilename: sessionRawDataFilename(
+            widget.session.patientId,
+            sessionId,
+          ),
+        );
+        if (!mounted) return;
+        if (!filesSaved) {
+          setState(() {
+            _isSaving = false;
+            _errorMessage = storage.errorMessage;
+          });
+          return;
+        }
+      }
       Navigator.of(context).pop();
       return;
     }

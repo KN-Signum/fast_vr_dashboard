@@ -7,6 +7,7 @@ import '../providers/eeg_provider.dart';
 import '../providers/eeg_control_provider.dart';
 import '../providers/eye_tracking_provider.dart';
 import '../providers/session_provider.dart';
+import '../providers/session_file_storage_provider.dart';
 import '../providers/web_socket_provider.dart';
 import '../providers/vr_simulation_provider.dart';
 import '../theme/app_style.dart';
@@ -58,6 +59,7 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
     final eegControl = context.watch<EegControlProvider>();
     final eyeTracking = context.watch<EyeTrackingProvider>();
     final session = context.watch<SessionProvider>();
+    final fileStorage = context.watch<SessionFileStorageProvider>();
     final vrSimulation = context.watch<VrSimulationProvider>();
     final patientId = _patientIdController.text.trim();
 
@@ -93,13 +95,30 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
                         notesController: _notesController,
                         preferredHand: _preferredHand,
                         errorMessage: session.errorMessage,
+                        storageErrorMessage: fileStorage.errorMessage,
+                        storageSupported: fileStorage.isSupported,
+                        storageBusy: fileStorage.isBusy,
+                        selectedDirectoryName: fileStorage.baseDirectoryName,
+                        onSelectDirectory: () {
+                          unawaited(fileStorage.pickBaseDirectory());
+                        },
                         onPreferredHandChanged: (value) {
                           if (value == null) return;
                           setState(() => _preferredHand = value);
                         },
-                        onCreate: patientId.isEmpty || session.isBusy
+                        onCreate:
+                            patientId.isEmpty ||
+                                session.isBusy ||
+                                fileStorage.isBusy ||
+                                (fileStorage.isSupported &&
+                                    !fileStorage.hasBaseDirectory)
                             ? null
                             : () async {
+                                if (fileStorage.isSupported) {
+                                  final prepared = await fileStorage
+                                      .preparePatientDirectory(patientId);
+                                  if (!prepared) return;
+                                }
                                 await session.createSession(
                                   patientId: patientId,
                                   preferredHand: _preferredHand,
@@ -201,7 +220,12 @@ class _SessionFormCard extends StatelessWidget {
   final TextEditingController notesController;
   final String preferredHand;
   final String? errorMessage;
+  final String? storageErrorMessage;
+  final bool storageSupported;
+  final bool storageBusy;
+  final String? selectedDirectoryName;
   final ValueChanged<String?> onPreferredHandChanged;
+  final VoidCallback onSelectDirectory;
   final VoidCallback? onCreate;
 
   const _SessionFormCard({
@@ -209,7 +233,12 @@ class _SessionFormCard extends StatelessWidget {
     required this.notesController,
     required this.preferredHand,
     required this.errorMessage,
+    required this.storageErrorMessage,
+    required this.storageSupported,
+    required this.storageBusy,
+    required this.selectedDirectoryName,
     required this.onPreferredHandChanged,
+    required this.onSelectDirectory,
     required this.onCreate,
   });
 
@@ -273,6 +302,13 @@ class _SessionFormCard extends StatelessWidget {
               'Notatki przed sesją',
             ).copyWith(alignLabelWithHint: true),
           ),
+          const SizedBox(height: 14),
+          _StorageDirectoryField(
+            supported: storageSupported,
+            busy: storageBusy,
+            directoryName: selectedDirectoryName,
+            onSelect: onSelectDirectory,
+          ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
             onPressed: onCreate,
@@ -290,6 +326,91 @@ class _SessionFormCard extends StatelessWidget {
                 color: AppColors.danger,
                 fontWeight: FontWeight.w600,
               ),
+            ),
+          ],
+          if (storageErrorMessage != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              storageErrorMessage!,
+              style: const TextStyle(
+                color: AppColors.danger,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StorageDirectoryField extends StatelessWidget {
+  const _StorageDirectoryField({
+    required this.supported,
+    required this.busy,
+    required this.directoryName,
+    required this.onSelect,
+  });
+
+  final bool supported;
+  final bool busy;
+  final String? directoryName;
+  final VoidCallback onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = directoryName != null;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceAlt,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: selected ? AppColors.success : AppColors.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            selected ? Icons.folder : Icons.folder_outlined,
+            color: selected ? AppColors.success : AppColors.muted,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Folder zapisu',
+                  style: TextStyle(fontSize: 11, color: AppColors.muted),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  supported
+                      ? directoryName ?? 'Nie wybrano folderu'
+                      : 'Automatyczny zapis niedostępny w tej przeglądarce',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: selected ? AppColors.text : AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (supported) ...[
+            const SizedBox(width: 10),
+            OutlinedButton.icon(
+              onPressed: busy ? null : onSelect,
+              icon: busy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.folder_open, size: 18),
+              label: Text(selected ? 'Zmień' : 'Wybierz'),
             ),
           ],
         ],

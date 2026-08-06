@@ -1,14 +1,32 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:vr_fast_dashboard/providers/session_file_storage_provider.dart';
 import 'package:vr_fast_dashboard/providers/session_provider.dart';
 import 'package:vr_fast_dashboard/services/session_api.dart';
+import 'package:vr_fast_dashboard/services/session_file_store.dart';
 import 'package:vr_fast_dashboard/widgets/post_session_notes_dialog.dart';
 
 void main() {
   testWidgets('ends the session and saves post-session notes', (tester) async {
     final api = _DialogSessionApi();
     final provider = SessionProvider(api: api);
+    final fileStore = _DialogFileStore();
+    final fileStorage = SessionFileStorageProvider(
+      store: fileStore,
+      httpClient: MockClient((request) async {
+        return http.Response.bytes(
+          request.url.path.endsWith('/summary') ? [1, 2] : [3, 4],
+          200,
+        );
+      }),
+    );
     await provider.restoreActiveSession();
+    await fileStorage.pickBaseDirectory();
+    await fileStorage.preparePatientDirectory(provider.patientId);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -18,7 +36,10 @@ void main() {
               onPressed: () => showDialog<void>(
                 context: context,
                 barrierDismissible: false,
-                builder: (_) => PostSessionNotesDialog(session: provider),
+                builder: (_) => PostSessionNotesDialog(
+                  session: provider,
+                  fileStorage: fileStorage,
+                ),
               ),
               child: const Text('End'),
             ),
@@ -46,7 +67,17 @@ void main() {
 
     expect(api.savedNotes, 'Patient felt well');
     expect(provider.postSessionNotes, 'Patient felt well');
+    expect(
+      fileStore.files.keys,
+      containsAll([
+        'raport_sesji_patient-001_session-001.pdf',
+        'raw_data_patient-001_session-001.zip',
+      ]),
+    );
     expect(find.byType(PostSessionNotesDialog), findsNothing);
+
+    fileStorage.dispose();
+    provider.dispose();
   });
 }
 
@@ -91,10 +122,12 @@ class _DialogSessionApi implements SessionApi {
   }) => throw UnimplementedError();
 
   @override
-  Uri rawDownloadUri(String sessionId) => Uri();
+  Uri rawDownloadUri(String sessionId) =>
+      Uri.parse('http://localhost/download/raw');
 
   @override
-  Uri summaryDownloadUri(String sessionId) => Uri();
+  Uri summaryDownloadUri(String sessionId) =>
+      Uri.parse('http://localhost/download/summary');
 
   @override
   void close() {}
@@ -114,5 +147,42 @@ class _DialogSessionApi implements SessionApi {
       'dropped_records': 0,
       'session_events': <Map<String, dynamic>>[],
     };
+  }
+}
+
+class _DialogFileStore implements SessionFileStore {
+  final Map<String, Uint8List> files = {};
+  String? _baseDirectoryName;
+  String? _patientDirectoryName;
+
+  @override
+  bool get isSupported => true;
+
+  @override
+  String? get baseDirectoryName => _baseDirectoryName;
+
+  @override
+  String? get patientDirectoryName => _patientDirectoryName;
+
+  @override
+  Future<void> pickBaseDirectory() async {
+    _baseDirectoryName = 'Badania';
+  }
+
+  @override
+  Future<void> preparePatientDirectory(String directoryName) async {
+    _patientDirectoryName = directoryName;
+  }
+
+  @override
+  Future<void> writeFile(String filename, Uint8List bytes) async {
+    files[filename] = Uint8List.fromList(bytes);
+  }
+
+  @override
+  void clear() {
+    _baseDirectoryName = null;
+    _patientDirectoryName = null;
+    files.clear();
   }
 }
